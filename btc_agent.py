@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import ap2_sim
+
 
 UPDATE_OPTIONS = {
     "1": ("1 second", 1),
@@ -147,6 +149,7 @@ class SimulationState:
     realized_pnl: float = 0.0
     trade_count: int = 0
     last_seen_price: float | None = None
+    active_intent_mandate: dict[str, Any] | None = None
 
 
 @dataclass
@@ -844,14 +847,267 @@ def create_simulation_state(config: SimulationConfig) -> SimulationState:
     )
 
 
+def initialize_ap2_simulation(symbol: str, config: SimulationConfig) -> tuple[dict[str, Any] | None, list[str]]:
+    try:
+        intent_record = ap2_sim.create_intent_mandate(
+            symbol=symbol,
+            starting_cash_usd=config.starting_cash,
+            buy_cooldown_seconds=config.buy_cooldown_seconds,
+            buy_threshold_usd=config.drop_to_buy_usd,
+            sell_threshold_usd=config.rise_to_sell_usd,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return None, [f"AP2 SIM | BLOCKED | Could not create Intent Mandate: {exc}"]
+
+    intent_id = intent_record["payload"]["mandateId"]
+    return intent_record, [
+        f"AP2 SIM | Intent Mandate created: {intent_id}",
+        "AP2 SIM | Mode: SIMULATION only | Real money: disabled",
+    ]
+
+
+def create_buy_cart_mandate(
+    result: SignalResult,
+    config: SimulationConfig,
+    state: SimulationState,
+    previous_seen_price: float,
+) -> tuple[dict[str, Any] | None, str]:
+    intent_record = state.active_intent_mandate
+    if intent_record is None:
+        return None, "No active Intent Mandate is available for simulated BUY."
+
+    quantity = state.cash_balance / result.price if result.price > 0 else 0.0
+    price_change = result.price - previous_seen_price
+    reason = (
+        f"BTC dropped by ${abs(price_change):.2f} from the previous observed price, "
+        f"exceeding the ${config.drop_to_buy_usd:.2f} buy threshold."
+    )
+    cart_record = ap2_sim.create_cart_mandate(
+        intent_record=intent_record,
+        action="BUY",
+        symbol=result.symbol,
+        price=result.price,
+        quantity=quantity,
+        notional_usd=state.cash_balance,
+        ai_signal=result.signal,
+        ai_confidence=result.confidence,
+        rule_trigger={
+            "previousPrice": round(previous_seen_price, 2),
+            "currentPrice": round(result.price, 2),
+            "priceChangeUsd": round(price_change, 2),
+            "buyThresholdUsd": round(config.drop_to_buy_usd, 2),
+        },
+        reason=reason,
+    )
+    return cart_record, reason
+
+
+def create_sell_cart_mandate(
+    result: SignalResult,
+    config: SimulationConfig,
+    state: SimulationState,
+) -> tuple[dict[str, Any] | None, str]:
+    intent_record = state.active_intent_mandate
+    if intent_record is None:
+        return None, "No active Intent Mandate is available for simulated SELL."
+
+    if state.entry_price is None:
+        return None, "No simulated entry price is available for the SELL."
+
+    rise_from_entry = result.price - state.entry_price
+    reason = (
+        f"BTC rose by ${rise_from_entry:.2f} from entry, "
+        f"exceeding the ${config.rise_to_sell_usd:.2f} sell threshold."
+    )
+    cart_record = ap2_sim.create_cart_mandate(
+        intent_record=intent_record,
+        action="SELL",
+        symbol=result.symbol,
+        price=result.price,
+        quantity=state.btc_balance,
+        notional_usd=state.btc_balance * result.price,
+        ai_signal=result.signal,
+        ai_confidence=result.confidence,
+        rule_trigger={
+            "entryPrice": round(state.entry_price, 2),
+            "currentPrice": round(result.price, 2),
+            "riseFromEntryUsd": round(rise_from_entry, 2),
+            "sellThresholdUsd": round(config.rise_to_sell_usd, 2),
+        },
+        reason=reason,
+    )
+    return cart_record, reason
+
+
+def block_ap2_trade(
+    *,
+    action: str,
+    reason: str,
+    state: SimulationState,
+    cart_record: dict[str, Any] | None = None,
+) -> list[str]:
+    intent_id = None
+    if state.active_intent_mandate and isinstance(state.active_intent_mandate.get("payload"), dict):
+        intent_id = state.active_intent_mandate["payload"].get("mandateId")
+
+    ap2_sim.log_validation_failed(
+        reason=reason,
+        intent_mandate_id=intent_id,
+        cart_record=cart_record,
+        action=action,
+    )
+    ap2_sim.log_trade_blocked(
+        reason=reason,
+        intent_mandate_id=intent_id,
+        cart_record=cart_record,
+        action=action,
+    )
+    return [f"AP2 SIM | BLOCKED | {reason}"]
+
+
+def execute_ap2_buy(
+    result: SignalResult,
+    config: SimulationConfig,
+    state: SimulationState,
+    previous_seen_price: float,
+) -> list[str]:
+    cart_record, cart_reason = create_buy_cart_mandate(result, config, state, previous_seen_price)
+    if cart_record is None:
+        return block_ap2_trade(action="BUY", reason=cart_reason, state=state)
+
+    messages = [
+        f"AP2 SIM | Cart Mandate created: {cart_record['payload']['mandateId']} | Proposed BUY"
+    ]
+    valid, validation_reason, active_intent = ap2_sim.validate_cart_mandate(
+        cart_record=cart_record,
+        expected_symbol=result.symbol,
+        available_cash=state.cash_balance,
+        available_btc=state.btc_balance,
+    )
+    if not valid or active_intent is None:
+        messages.extend(block_ap2_trade(action="BUY", reason=validation_reason, state=state, cart_record=cart_record))
+        return messages
+
+    state.active_intent_mandate = active_intent
+    cash_before = state.cash_balance
+    btc_before = state.btc_balance
+    spent = state.cash_balance
+    state.btc_balance = spent / result.price
+    state.cash_balance = 0.0
+    state.entry_cash_value = spent
+    state.entry_price = result.price
+    state.last_buy_monotonic = time.monotonic()
+    state.trade_count += 1
+
+    payment_reason = (
+        "Simulated BUY executed because the Cart Mandate matched the active Intent Mandate "
+        "and all simulation risk checks passed."
+    )
+    payment_record = ap2_sim.create_payment_mandate(
+        intent_record=active_intent,
+        cart_record=cart_record,
+        action="BUY",
+        symbol=result.symbol,
+        execution_price=result.price,
+        quantity=state.btc_balance,
+        notional_usd=spent,
+        cash_before=cash_before,
+        cash_after=state.cash_balance,
+        btc_before=btc_before,
+        btc_after=state.btc_balance,
+        reason=payment_reason,
+    )
+
+    messages.append(
+        f"AUTO BUY | Spent ${spent:.2f} | Bought {state.btc_balance:.8f} BTC at ${result.price:.2f} "
+        f"after a ${previous_seen_price - result.price:.2f} drop | "
+        f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f}"
+    )
+    messages.append(
+        f"AP2 SIM | Payment Mandate created: {payment_record['payload']['mandateId']} | SIMULATED_EXECUTED"
+    )
+    return messages
+
+
+def execute_ap2_sell(
+    result: SignalResult,
+    config: SimulationConfig,
+    state: SimulationState,
+) -> list[str]:
+    cart_record, cart_reason = create_sell_cart_mandate(result, config, state)
+    if cart_record is None:
+        return block_ap2_trade(action="SELL", reason=cart_reason, state=state)
+
+    messages = [
+        f"AP2 SIM | Cart Mandate created: {cart_record['payload']['mandateId']} | Proposed SELL"
+    ]
+    valid, validation_reason, active_intent = ap2_sim.validate_cart_mandate(
+        cart_record=cart_record,
+        expected_symbol=result.symbol,
+        available_cash=state.cash_balance,
+        available_btc=state.btc_balance,
+    )
+    if not valid or active_intent is None:
+        messages.extend(block_ap2_trade(action="SELL", reason=validation_reason, state=state, cart_record=cart_record))
+        return messages
+
+    state.active_intent_mandate = active_intent
+    entry_price = state.entry_price or result.price
+    cash_before = state.cash_balance
+    btc_before = state.btc_balance
+    equity_before = state.btc_balance * result.price
+    received = state.btc_balance * result.price
+    pnl = received - state.entry_cash_value
+    pnl_pct = (pnl / state.entry_cash_value * 100) if state.entry_cash_value else 0.0
+    state.realized_pnl += pnl
+    state.cash_balance = received
+    state.btc_balance = 0.0
+    state.entry_cash_value = 0.0
+    state.entry_price = None
+    state.last_buy_monotonic = None
+    state.next_buy_monotonic = time.monotonic() + config.buy_cooldown_seconds
+    state.trade_count += 1
+
+    payment_reason = (
+        "Simulated SELL executed because the Cart Mandate matched the active Intent Mandate "
+        "and all simulation risk checks passed."
+    )
+    payment_record = ap2_sim.create_payment_mandate(
+        intent_record=active_intent,
+        cart_record=cart_record,
+        action="SELL",
+        symbol=result.symbol,
+        execution_price=result.price,
+        quantity=btc_before,
+        notional_usd=received,
+        cash_before=cash_before,
+        cash_after=state.cash_balance,
+        btc_before=btc_before,
+        btc_after=state.btc_balance,
+        reason=payment_reason,
+    )
+
+    messages.append(
+        f"AUTO SELL | Received ${received:.2f} | P/L {pnl:+.2f} ({pnl_pct:+.2f}%) at ${result.price:.2f} "
+        f"after a ${result.price - entry_price:.2f} rise from entry | "
+        f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f} | "
+        f"Equity before sell: ${equity_before:.2f}"
+    )
+    messages.append(
+        f"AP2 SIM | Payment Mandate created: {payment_record['payload']['mandateId']} | SIMULATED_EXECUTED"
+    )
+    return messages
+
+
 def update_simulation(
-    current_price: float, config: SimulationConfig, state: SimulationState
+    result: SignalResult, config: SimulationConfig, state: SimulationState
 ) -> list[str]:
     if not config.enabled:
         return []
 
     messages: list[str] = []
     now = time.monotonic()
+    current_price = result.price
     previous_seen_price = state.last_seen_price
     state.last_seen_price = current_price
 
@@ -862,19 +1118,7 @@ def update_simulation(
         and now >= state.next_buy_monotonic
         and current_price <= previous_seen_price - config.drop_to_buy_usd
     ):
-        cash_before = state.cash_balance
-        spent = state.cash_balance
-        state.btc_balance = spent / current_price
-        state.cash_balance = 0.0
-        state.entry_cash_value = spent
-        state.entry_price = current_price
-        state.last_buy_monotonic = now
-        state.trade_count += 1
-        messages.append(
-            f"AUTO BUY | Spent ${spent:.2f} | Bought {state.btc_balance:.8f} BTC at ${current_price:.2f} "
-            f"after a ${previous_seen_price - current_price:.2f} drop | "
-            f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f}"
-        )
+        messages.extend(execute_ap2_buy(result, config, state, previous_seen_price))
         return messages
 
     if (
@@ -882,26 +1126,7 @@ def update_simulation(
         and state.entry_price is not None
         and current_price >= state.entry_price + config.rise_to_sell_usd
     ):
-        entry_price = state.entry_price
-        cash_before = state.cash_balance
-        equity_before = state.btc_balance * current_price
-        received = state.btc_balance * current_price
-        pnl = received - state.entry_cash_value
-        pnl_pct = (pnl / state.entry_cash_value * 100) if state.entry_cash_value else 0.0
-        state.realized_pnl += pnl
-        state.cash_balance = received
-        state.btc_balance = 0.0
-        state.entry_cash_value = 0.0
-        state.entry_price = None
-        state.last_buy_monotonic = None
-        state.next_buy_monotonic = now + config.buy_cooldown_seconds
-        state.trade_count += 1
-        messages.append(
-            f"AUTO SELL | Received ${received:.2f} | P/L {pnl:+.2f} ({pnl_pct:+.2f}%) at ${current_price:.2f} "
-            f"after a ${current_price - entry_price:.2f} rise from entry | "
-            f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f} | "
-            f"Equity before sell: ${equity_before:.2f}"
-        )
+        messages.extend(execute_ap2_sell(result, config, state))
 
     return messages
 
@@ -1097,6 +1322,12 @@ def main() -> int:
     previous_price: float | None = None
     last_result: SignalResult | None = None
     simulation_state = create_simulation_state(simulation_config) if simulation_config.enabled else None
+    ap2_startup_messages: list[str] = []
+    if simulation_config.enabled and simulation_state is not None:
+        simulation_state.active_intent_mandate, ap2_startup_messages = initialize_ap2_simulation(
+            config.symbol,
+            simulation_config,
+        )
 
     try:
         print(f"Using OpenAI model: {config.openai_model}")
@@ -1110,6 +1341,8 @@ def main() -> int:
                 f"sell after a ${simulation_config.rise_to_sell_usd:.2f} rise from entry, "
                 f"starting cash ${simulation_config.starting_cash:.2f}."
             )
+            for line in ap2_startup_messages:
+                print(line)
         print("Press Ctrl+C to stop.")
         print("")
         print_startup_status(config)
@@ -1125,7 +1358,7 @@ def main() -> int:
 
             simulation_messages = []
             if simulation_state is not None:
-                simulation_messages = update_simulation(result.price, simulation_config, simulation_state)
+                simulation_messages = update_simulation(result, simulation_config, simulation_state)
 
             print_tracker_update(
                 result,

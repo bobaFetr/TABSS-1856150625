@@ -136,5 +136,43 @@ $env:BINANCE_BASE_URL="https://api.binance.us"
 - if Binance times out, the tracker now retries automatically and then keeps running with the last known price instead of exiting
 - console output is printed in separated blocks so each update is easier to read
 
+## AP2-Inspired Simulation
 
-SIMULATE THE AP2 THING HERE
+This project does not implement real AP2 payment rails. It simulates AP2-style mandate concepts for education, auditability, and a graduation project.
+
+- `Intent Mandate` = the user's authorization for simulated BTCUSDT trading rules
+- `Cart Mandate` = a proposed simulated BUY or SELL
+- `Payment Mandate` = the final record for an executed simulated trade
+- all mandates are hashed with SHA-256 and signed with simulated HMAC signatures
+- no real money is moved
+- no real Binance orders are placed
+- the simulation stays in `SIMULATION` mode only
+
+AP2 simulation files:
+
+- [ap2_sim.py](</c:/Users/Lenovo/Desktop/python ai agent buy sell/ap2_sim.py:1>) - mandate creation, signing, validation, and audit logging
+- [ap2_mandates/active_intent_mandate.json](</c:/Users/Lenovo/Desktop/python ai agent buy sell/ap2_mandates/active_intent_mandate.json:1>) - active user simulation authorization
+- [ap2_logs/ap2_simulation_log.jsonl](</c:/Users/Lenovo/Desktop/python ai agent buy sell/ap2_logs/ap2_simulation_log.jsonl:1>) - audit trail of mandate and simulated trade events
+
+Environment variable for simulated signing:
+
+```powershell
+$env:AP2_SIM_SECRET="your_local_simulation_secret"
+```
+
+If `AP2_SIM_SECRET` is missing, the app uses a safe local development fallback secret internally.
+
+Supported AP2 simulation audit events:
+
+- `INTENT_MANDATE_CREATED`
+- `CART_MANDATE_CREATED`
+- `PAYMENT_MANDATE_CREATED`
+- `SIMULATED_TRADE_EXECUTED`
+- `SIMULATED_TRADE_BLOCKED`
+- `MANDATE_VALIDATION_FAILED`
+
+Simple self-test:
+
+```powershell
+C:\Users\Lenovo\AppData\Local\Python\pythoncore-3.14-64\python.exe -c "import json, ap2_sim; print(json.dumps(ap2_sim.run_self_test(), indent=2))"
+```

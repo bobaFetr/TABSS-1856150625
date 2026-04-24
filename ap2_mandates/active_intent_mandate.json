@@ -1,0 +1,32 @@
+{
+  "payload": {
+    "mandateType": "IntentMandate",
+    "mandateId": "intent_20260424T135833_4d277d77",
+    "agentId": "btc_binance_signal_agent",
+    "symbol": "BTCUSDT",
+    "mode": "SIMULATION",
+    "allowedActions": [
+      "BUY",
+      "SELL"
+    ],
+    "startingCashUsd": 500.0,
+    "buyCooldownSeconds": 30,
+    "buyRule": {
+      "type": "drop_from_previous_observed_price",
+      "thresholdUsd": 10.0
+    },
+    "sellRule": {
+      "type": "rise_from_entry_price",
+      "thresholdUsd": 3.0
+    },
+    "realTradingEnabled": false,
+    "realMoneyMoved": false,
+    "allowWithdrawals": false,
+    "allowLeverage": false,
+    "createdAt": "2026-04-24T13:58:33+00:00",
+    "expiresAt": "2026-04-25T13:58:33+00:00",
+    "userConfirmation": "User authorized simulated BTCUSDT trading only."
+  },
+  "payloadHash": "1bc8efcb0936bf7bb248843ff5dfd8816ed36b7a930fc54d39cf96306135ec5f",
+  "signature": "d2dd046f99d126c50b0b40b582aaf34e97c03aad27284cec17d6d57a67e5433a"
+}
