@@ -928,6 +928,7 @@ def print_tracker_update(
 ) -> None:
     timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
     price_move = status_label or format_change(result.price, previous_price)
+    print("-" * 100)
     print(
         f"[{timestamp}] "
         f"BTC: ${result.price:.2f} | "
@@ -940,6 +941,7 @@ def print_tracker_update(
         print(simulation_summary(result.price, simulation_state))
     for message in simulation_messages or []:
         print(message)
+    print("")
 
 
 def config_from_args(args: argparse.Namespace) -> AgentConfig:

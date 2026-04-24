@@ -1,30 +1,31 @@
 {
   "position": "FLAT",
   "last_signal": "HOLD",
-  "last_updated": "2026-04-24T07:27:12+00:00",
+  "last_updated": "2026-04-24T07:39:56+00:00",
   "last_confidence": 42,
   "last_reasons": [
     "Using cached AI signal because OpenAI is unavailable: OpenAI request failed with HTTP 429: {\n  \"error\": {\n    \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.\",\n    \"type\": \"insufficient_quota\",\n    \"param\": null,\n    \"code\": \"insufficient_quota\"\n  }\n}"
   ],
   "last_signal_refresh": "",
-  "last_snapshot_refresh": "2026-04-24T07:23:29+00:00",
+  "last_snapshot_refresh": "2026-04-24T07:37:18+00:00",
   "last_snapshot": {
     "symbol": "BTCUSDT",
     "interval": "15m",
-    "live_price": 77708.37,
-    "candle_close_price": 77677.77,
-    "rsi": 42.10306370234233,
-    "ema_fast": 77774.22926617644,
-    "ema_mid": 77840.22268087394,
-    "ema_slow": 77923.36292599858,
-    "macd_histogram": 3.96598658018749,
-    "atr": 174.73135450016585,
+    "live_price": 77660.41,
+    "candle_close_price": 77638.12,
+    "rsi": 40.658643752072216,
+    "ema_fast": 77753.81541294116,
+    "ema_mid": 77825.36623881292,
+    "ema_slow": 77914.63053555663,
+    "macd_histogram": -0.4228689297567314,
+    "atr": 171.3727371212555,
     "bullish_score": 0,
-    "bearish_score": 3,
+    "bearish_score": 5,
     "reasons": [
       "Short-term trend is below medium and long trend.",
+      "Price is below the fast EMA and MACD momentum is weakening.",
       "RSI is fading inside a weak momentum zone.",
-      "Rule-based score is mixed."
+      "Rule-based score is tilted bearish."
     ]
   }
 }
