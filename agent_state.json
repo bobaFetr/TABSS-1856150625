@@ -1,10 +1,31 @@
 {
   "position": "FLAT",
   "last_signal": "HOLD",
-  "last_updated": "2026-04-24T06:49:09+00:00",
+  "last_updated": "2026-04-24T06:57:47+00:00",
   "last_confidence": 42,
   "last_reasons": [
     "Using cached AI signal because OpenAI is unavailable: OpenAI request failed with HTTP 429: {\n  \"error\": {\n    \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.\",\n    \"type\": \"insufficient_quota\",\n    \"param\": null,\n    \"code\": \"insufficient_quota\"\n  }\n}"
   ],
-  "last_signal_refresh": ""
+  "last_signal_refresh": "",
+  "last_snapshot_refresh": "2026-04-24T06:55:04+00:00",
+  "last_snapshot": {
+    "symbol": "BTCUSDT",
+    "interval": "15m",
+    "live_price": 77809.65,
+    "candle_close_price": 77875.0,
+    "rsi": 49.1344861999405,
+    "ema_fast": 77824.69010340069,
+    "ema_mid": 77873.74874386855,
+    "ema_slow": 77941.88212194307,
+    "macd_histogram": 17.47571000457006,
+    "atr": 184.17241595095075,
+    "bullish_score": 3,
+    "bearish_score": 2,
+    "reasons": [
+      "Short-term trend is below medium and long trend.",
+      "Price is above the fast EMA and MACD momentum is improving.",
+      "RSI shows constructive upward momentum without being overbought.",
+      "Rule-based score is mixed."
+    ]
+  }
 }

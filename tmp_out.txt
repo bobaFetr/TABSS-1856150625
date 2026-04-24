@@ -1,0 +1,8 @@
+Using OpenAI model: gpt-4.1-nano
+Signal refresh interval: 300 second(s)
+Tracking BTCUSDT from Binance every 1 second(s).
+Press Ctrl+C to stop.
+
+Live BTC price now: $77885.66
+Loading the first full market snapshot. This can take a few seconds.
+

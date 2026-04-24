@@ -98,6 +98,8 @@ class AgentState:
     last_confidence: int = 50
     last_reasons: list[str] | None = None
     last_signal_refresh: str = ""
+    last_snapshot_refresh: str = ""
+    last_snapshot: dict[str, Any] | None = None
 
 
 @dataclass
@@ -138,6 +140,53 @@ class MarketSnapshot:
     bullish_score: int
     bearish_score: int
     reasons: list[str]
+
+
+def snapshot_to_dict(snapshot: MarketSnapshot) -> dict[str, Any]:
+    return asdict(snapshot)
+
+
+def snapshot_from_dict(payload: dict[str, Any]) -> MarketSnapshot | None:
+    required = {
+        "symbol",
+        "interval",
+        "live_price",
+        "candle_close_price",
+        "rsi",
+        "ema_fast",
+        "ema_mid",
+        "ema_slow",
+        "macd_histogram",
+        "atr",
+        "bullish_score",
+        "bearish_score",
+        "reasons",
+    }
+    if not isinstance(payload, dict) or not required.issubset(payload):
+        return None
+
+    reasons = payload.get("reasons")
+    if not isinstance(reasons, list):
+        return None
+
+    try:
+        return MarketSnapshot(
+            symbol=str(payload["symbol"]),
+            interval=str(payload["interval"]),
+            live_price=float(payload["live_price"]),
+            candle_close_price=float(payload["candle_close_price"]),
+            rsi=float(payload["rsi"]),
+            ema_fast=float(payload["ema_fast"]),
+            ema_mid=float(payload["ema_mid"]),
+            ema_slow=float(payload["ema_slow"]),
+            macd_histogram=float(payload["macd_histogram"]),
+            atr=float(payload["atr"]),
+            bullish_score=int(payload["bullish_score"]),
+            bearish_score=int(payload["bearish_score"]),
+            reasons=[str(reason) for reason in reasons],
+        )
+    except (TypeError, ValueError):
+        return None
 
 
 class BinanceClient:
@@ -324,6 +373,8 @@ def load_state(path: Path) -> AgentState:
         last_confidence=int(raw.get("last_confidence", 50)),
         last_reasons=raw.get("last_reasons") if isinstance(raw.get("last_reasons"), list) else None,
         last_signal_refresh=str(raw.get("last_signal_refresh", "")),
+        last_snapshot_refresh=str(raw.get("last_snapshot_refresh", "")),
+        last_snapshot=raw.get("last_snapshot") if isinstance(raw.get("last_snapshot"), dict) else None,
     )
 
 
@@ -603,13 +654,30 @@ def build_rule_based_signal(snapshot: MarketSnapshot) -> tuple[str, int, list[st
     return signal, confidence, reasons
 
 
-def should_refresh_signal(state: AgentState, refresh_seconds: int) -> bool:
-    last_refresh = parse_iso_timestamp(state.last_signal_refresh)
+def should_refresh_from_timestamp(last_refresh_value: str, refresh_seconds: int) -> bool:
+    last_refresh = parse_iso_timestamp(last_refresh_value)
     if last_refresh is None:
         return True
 
     elapsed = (datetime.now(timezone.utc) - last_refresh.astimezone(timezone.utc)).total_seconds()
     return elapsed >= refresh_seconds
+
+
+def get_market_snapshot(
+    binance_client: BinanceClient, config: AgentConfig, state: AgentState
+) -> tuple[MarketSnapshot, bool]:
+    live_price = binance_client.get_ticker_price(config.symbol)
+    cached_snapshot = snapshot_from_dict(state.last_snapshot or {})
+
+    if cached_snapshot and not should_refresh_from_timestamp(
+        state.last_snapshot_refresh, config.signal_refresh_seconds
+    ):
+        cached_snapshot.live_price = live_price
+        return cached_snapshot, False
+
+    klines = binance_client.get_klines(config.symbol, config.interval, config.lookback)
+    fresh_snapshot = analyze_market(klines, live_price, config)
+    return fresh_snapshot, True
 
 
 def print_signal(result: SignalResult) -> None:
@@ -700,15 +768,15 @@ def run_cycle(config: AgentConfig) -> SignalResult:
     binance_client = BinanceClient(base_url=config.base_url, timeout=config.request_timeout)
     state_path = Path(config.state_file)
     state = load_state(state_path)
-    klines = binance_client.get_klines(config.symbol, config.interval, config.lookback)
-    live_price = binance_client.get_ticker_price(config.symbol)
-    snapshot = analyze_market(klines, live_price, config)
+    snapshot, snapshot_refreshed = get_market_snapshot(binance_client, config, state)
     signal: str
     confidence: int
     reasons: list[str]
     refreshed_at = state.last_signal_refresh
+    snapshot_refreshed_at = state.last_snapshot_refresh
 
-    if config.openai_api_key and should_refresh_signal(state, config.signal_refresh_seconds):
+    if config.openai_api_key and snapshot_refreshed:
+        snapshot_refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         openai_client = OpenAIClient(
             api_key=config.openai_api_key,
             base_url=config.openai_base_url,
@@ -736,6 +804,9 @@ def run_cycle(config: AgentConfig) -> SignalResult:
         signal, confidence, reasons = build_rule_based_signal(snapshot)
         reasons = ["Using rule-based fallback because OPENAI_API_KEY is missing."] + reasons[:2]
 
+    if snapshot_refreshed and not snapshot_refreshed_at:
+        snapshot_refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
     result = build_signal_result(snapshot, state, signal, confidence, reasons)
 
     save_state(
@@ -747,9 +818,23 @@ def run_cycle(config: AgentConfig) -> SignalResult:
             last_confidence=result.confidence,
             last_reasons=result.reasons,
             last_signal_refresh=refreshed_at,
+            last_snapshot_refresh=snapshot_refreshed_at,
+            last_snapshot=snapshot_to_dict(snapshot),
         ),
     )
     return result
+
+
+def print_startup_status(config: AgentConfig) -> None:
+    try:
+        quick_client = BinanceClient(base_url=config.base_url, timeout=min(config.request_timeout, 5.0))
+        quick_price = quick_client.get_ticker_price(config.symbol)
+        print(f"Live BTC price now: ${quick_price:.2f}")
+    except Exception:  # noqa: BLE001
+        print("Fetching live BTC price...")
+
+    print("Loading the first full market snapshot. This can take a few seconds.")
+    print("")
 
 
 def main() -> int:
@@ -770,8 +855,10 @@ def main() -> int:
         print(f"Tracking {config.symbol} from Binance every {config.poll_seconds} second(s).")
         print("Press Ctrl+C to stop.")
         print("")
+        print_startup_status(config)
 
         while True:
+            cycle_started = time.monotonic()
             result = run_cycle(config)
             if args.once:
                 print_signal(result)
@@ -779,7 +866,10 @@ def main() -> int:
 
             print_tracker_update(result, previous_price)
             previous_price = result.price
-            time.sleep(config.poll_seconds)
+            elapsed = time.monotonic() - cycle_started
+            sleep_seconds = max(0.0, config.poll_seconds - elapsed)
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
     except KeyboardInterrupt:
         return 0
     except Exception as exc:  # noqa: BLE001
