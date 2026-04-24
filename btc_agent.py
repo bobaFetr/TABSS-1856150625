@@ -88,6 +88,8 @@ class AgentConfig:
     openai_base_url: str = env_str("OPENAI_BASE_URL", "https://api.openai.com/v1/responses")
     openai_timeout: float = env_float("OPENAI_TIMEOUT", 20.0)
     signal_refresh_seconds: int = env_int("SIGNAL_REFRESH_SECONDS", 300)
+    binance_retry_count: int = env_int("BINANCE_RETRY_COUNT", 3)
+    binance_retry_delay_seconds: float = env_float("BINANCE_RETRY_DELAY_SECONDS", 2.0)
 
 
 @dataclass
@@ -922,9 +924,10 @@ def print_tracker_update(
     previous_price: float | None,
     simulation_state: SimulationState | None = None,
     simulation_messages: list[str] | None = None,
+    status_label: str | None = None,
 ) -> None:
     timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
-    price_move = format_change(result.price, previous_price)
+    price_move = status_label or format_change(result.price, previous_price)
     print(
         f"[{timestamp}] "
         f"BTC: ${result.price:.2f} | "
@@ -955,6 +958,8 @@ def config_from_args(args: argparse.Namespace) -> AgentConfig:
         openai_base_url=env_str("OPENAI_BASE_URL", "https://api.openai.com/v1/responses"),
         openai_timeout=env_float("OPENAI_TIMEOUT", 20.0),
         signal_refresh_seconds=env_int("SIGNAL_REFRESH_SECONDS", 300),
+        binance_retry_count=env_int("BINANCE_RETRY_COUNT", 3),
+        binance_retry_delay_seconds=env_float("BINANCE_RETRY_DELAY_SECONDS", 2.0),
     )
 
 
@@ -1037,6 +1042,33 @@ def run_cycle(config: AgentConfig) -> SignalResult:
     return result
 
 
+def run_cycle_with_retries(
+    config: AgentConfig, last_result: SignalResult | None
+) -> tuple[SignalResult | None, str | None]:
+    attempts = max(1, config.binance_retry_count)
+    last_error: str | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            return run_cycle(config), None
+        except RuntimeError as exc:
+            last_error = str(exc)
+            if "Binance" not in last_error and "timed out" not in last_error:
+                raise
+
+            if attempt < attempts:
+                print(
+                    f"Warning: {last_error}. Retrying {attempt}/{attempts - 1} "
+                    f"in {config.binance_retry_delay_seconds:.1f}s..."
+                )
+                time.sleep(config.binance_retry_delay_seconds)
+
+    if last_result is not None and last_error is not None:
+        return last_result, f"STALE | {last_error}"
+
+    raise RuntimeError(last_error or "Binance request failed")
+
+
 def print_startup_status(config: AgentConfig) -> None:
     try:
         quick_client = BinanceClient(base_url=config.base_url, timeout=min(config.request_timeout, 5.0))
@@ -1061,6 +1093,7 @@ def main() -> int:
 
     config = config_from_args(args)
     previous_price: float | None = None
+    last_result: SignalResult | None = None
     simulation_state = create_simulation_state(simulation_config) if simulation_config.enabled else None
 
     try:
@@ -1081,7 +1114,9 @@ def main() -> int:
 
         while True:
             cycle_started = time.monotonic()
-            result = run_cycle(config)
+            result, warning_label = run_cycle_with_retries(config, last_result)
+            if result is None:
+                raise RuntimeError("Could not load tracker result.")
             if args.once:
                 print_signal(result)
                 return 0
@@ -1090,8 +1125,15 @@ def main() -> int:
             if simulation_state is not None:
                 simulation_messages = update_simulation(result.price, simulation_config, simulation_state)
 
-            print_tracker_update(result, previous_price, simulation_state, simulation_messages)
+            print_tracker_update(
+                result,
+                previous_price,
+                simulation_state,
+                simulation_messages,
+                status_label=warning_label,
+            )
             previous_price = result.price
+            last_result = result
             elapsed = time.monotonic() - cycle_started
             sleep_seconds = max(0.0, config.poll_seconds - elapsed)
             if sleep_seconds > 0:

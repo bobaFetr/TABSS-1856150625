@@ -121,3 +121,4 @@ $env:BINANCE_BASE_URL="https://api.binance.us"
 - this is not financial advice
 - the BTC price can refresh every second, but the OpenAI signal refreshes every 5 minutes by default
 - if OpenAI is unavailable or out of quota, the tracker now keeps running and falls back to a cached or rule-based signal
+- if Binance times out, the tracker now retries automatically and then keeps running with the last known price instead of exiting
