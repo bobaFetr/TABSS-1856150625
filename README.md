@@ -135,3 +135,6 @@ $env:BINANCE_BASE_URL="https://api.binance.us"
 - if OpenAI is unavailable or out of quota, the tracker now keeps running and falls back to a cached or rule-based signal
 - if Binance times out, the tracker now retries automatically and then keeps running with the last known price instead of exiting
 - console output is printed in separated blocks so each update is easier to read
+
+
+SIMULATE THE AP2 THING HERE
