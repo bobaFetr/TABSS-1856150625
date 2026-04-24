@@ -76,9 +76,19 @@ If you prefer PowerShell:
 ## Example Console Output
 
 ```text
+----------------------------------------------------------------------------------------------------
 [2026-04-24 09:18:11] BTC: $77922.22 | NEW | Signal: HOLD | Action: WAIT | Confidence: 42%
-[2026-04-24 09:18:21] BTC: $77935.80 | UP +$13.58 | Signal: BUY | Action: BUY | Confidence: 68%
-[2026-04-24 09:18:31] BTC: $77901.15 | DOWN -$34.65 | Signal: SELL | Action: SELL | Confidence: 72%
+SIM | Equity: $500.00 | Cash: $500.00 | BTC: 0.00000000 | Unrealized: +0.00 | Realized: +0.00 | Trades: 0
+
+----------------------------------------------------------------------------------------------------
+[2026-04-24 09:18:21] BTC: $77910.80 | DOWN -$11.42 | Signal: HOLD | Action: WAIT | Confidence: 42%
+SIM | Equity: $500.00 | Cash: $0.00 | BTC: 0.00641744 | Unrealized: +0.00 | Realized: +0.00 | Trades: 1
+AUTO BUY | Spent $500.00 | Bought 0.00641744 BTC at $77910.80 after a $11.42 drop | Cash: $500.00 -> $0.00
+
+----------------------------------------------------------------------------------------------------
+[2026-04-24 09:18:31] BTC: $77918.85 | UP +$8.05 | Signal: HOLD | Action: WAIT | Confidence: 42%
+SIM | Equity: $500.05 | Cash: $500.05 | BTC: 0.00000000 | Unrealized: +0.00 | Realized: +0.05 | Trades: 2
+AUTO SELL | Received $500.05 | P/L +0.05 (+0.01%) at $77918.85 after a $8.05 rise from entry | Cash: $0.00 -> $500.05 | Equity before sell: $500.05
 ```
 
 ## Optional Direct Commands
@@ -107,6 +117,8 @@ $env:BUY_THRESHOLD="4"
 $env:SELL_THRESHOLD="4"
 $env:OPENAI_TIMEOUT="20"
 $env:SIGNAL_REFRESH_SECONDS="300"
+$env:BINANCE_RETRY_COUNT="3"
+$env:BINANCE_RETRY_DELAY_SECONDS="2"
 ```
 
 If `api.binance.com` is unavailable for your region, try:
@@ -122,3 +134,4 @@ $env:BINANCE_BASE_URL="https://api.binance.us"
 - the BTC price can refresh every second, but the OpenAI signal refreshes every 5 minutes by default
 - if OpenAI is unavailable or out of quota, the tracker now keeps running and falls back to a cached or rule-based signal
 - if Binance times out, the tracker now retries automatically and then keeps running with the last known price instead of exiting
+- console output is printed in separated blocks so each update is easier to read
