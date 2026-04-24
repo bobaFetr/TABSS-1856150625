@@ -126,6 +126,28 @@ class SignalResult:
 
 
 @dataclass
+class SimulationConfig:
+    enabled: bool = False
+    buy_cooldown_seconds: int = 0
+    drop_to_buy_usd: float = 0.0
+    rise_to_sell_usd: float = 0.0
+    starting_cash: float = 1000.0
+
+
+@dataclass
+class SimulationState:
+    cash_balance: float
+    btc_balance: float
+    next_buy_monotonic: float
+    last_buy_monotonic: float | None = None
+    entry_cash_value: float = 0.0
+    entry_price: float | None = None
+    realized_pnl: float = 0.0
+    trade_count: int = 0
+    last_seen_price: float | None = None
+
+
+@dataclass
 class MarketSnapshot:
     symbol: str
     interval: str
@@ -702,6 +724,104 @@ def prompt_poll_seconds() -> int:
         print("Invalid choice. Please enter 1, 2, or 3.")
 
 
+def prompt_positive_int(message: str) -> int:
+    while True:
+        value = input(message).strip()
+        try:
+            parsed = int(value)
+        except ValueError:
+            print("Please enter a whole number.")
+            continue
+
+        if parsed > 0:
+            return parsed
+        print("Please enter a number greater than 0.")
+
+
+def prompt_positive_float(message: str) -> float:
+    while True:
+        value = input(message).strip()
+        try:
+            parsed = float(value)
+        except ValueError:
+            print("Please enter a valid number.")
+            continue
+
+        if parsed > 0:
+            return parsed
+        print("Please enter a number greater than 0.")
+
+
+def prompt_starting_cash(max_amount: float = 1000.0) -> float:
+    while True:
+        value = input(f"How much money do you want to start with? Max ${max_amount:.2f}: ").strip()
+        try:
+            parsed = float(value)
+        except ValueError:
+            print("Please enter a valid number.")
+            continue
+
+        if parsed <= 0:
+            print("Please enter a number greater than 0.")
+            continue
+        if parsed > max_amount:
+            print(f"Please enter ${max_amount:.2f} or less.")
+            continue
+        return round(parsed, 2)
+
+
+def prompt_startup_mode() -> tuple[int, SimulationConfig]:
+    print("")
+    print("Choose a start option:")
+    print("1. Track price every 1 second")
+    print("2. Track price every 10 seconds")
+    print("3. Track price every 1 minute")
+    print("5. Simulate auto buy and sell")
+    print("")
+
+    while True:
+        choice = input("Select 1, 2, 3, or 5: ").strip()
+        if choice in UPDATE_OPTIONS:
+            label, seconds = UPDATE_OPTIONS[choice]
+            print(f"Selected {label}.")
+            print("")
+            return seconds, SimulationConfig()
+
+        if choice == "5":
+            print("")
+            print("Auto simulation mode selected.")
+            print("The app will buy when BTC is dropping and sell when BTC is rising.")
+            print("You can choose the starting simulation balance, up to $1000.00.")
+            print("")
+            poll_seconds = prompt_poll_seconds()
+            starting_cash = prompt_starting_cash(1000.0)
+            buy_cooldown_seconds = prompt_positive_int("How often can the agent buy again, in seconds? ")
+            drop_to_buy_usd = prompt_positive_float(
+                "Buy when BTC drops by how many USD from the previous observed price? "
+            )
+            rise_to_sell_usd = prompt_positive_float(
+                "Sell when BTC rises by how many USD above the buy price? "
+            )
+            print("")
+            print(
+                "Auto simulation configured: "
+                f"starting cash ${starting_cash:.2f}, "
+                f"buy cooldown {buy_cooldown_seconds} second(s), "
+                f"buy after a ${drop_to_buy_usd:.2f} drop, "
+                f"sell after a ${rise_to_sell_usd:.2f} rise from entry."
+            )
+            print("")
+            return poll_seconds, SimulationConfig(
+                enabled=True,
+                buy_cooldown_seconds=buy_cooldown_seconds,
+                drop_to_buy_usd=drop_to_buy_usd,
+                rise_to_sell_usd=rise_to_sell_usd,
+                starting_cash=starting_cash,
+            )
+
+        print("Invalid choice. Please enter 1, 2, 3, or 5.")
+
+
 def format_change(current_price: float, previous_price: float | None) -> str:
     if previous_price is None:
         return "NEW"
@@ -714,7 +834,95 @@ def format_change(current_price: float, previous_price: float | None) -> str:
     return "UNCHANGED"
 
 
-def print_tracker_update(result: SignalResult, previous_price: float | None) -> None:
+def create_simulation_state(config: SimulationConfig) -> SimulationState:
+    return SimulationState(
+        cash_balance=config.starting_cash,
+        btc_balance=0.0,
+        next_buy_monotonic=time.monotonic(),
+    )
+
+
+def update_simulation(
+    current_price: float, config: SimulationConfig, state: SimulationState
+) -> list[str]:
+    if not config.enabled:
+        return []
+
+    messages: list[str] = []
+    now = time.monotonic()
+    previous_seen_price = state.last_seen_price
+    state.last_seen_price = current_price
+
+    if (
+        state.btc_balance <= 0
+        and state.cash_balance > 0
+        and previous_seen_price is not None
+        and now >= state.next_buy_monotonic
+        and current_price <= previous_seen_price - config.drop_to_buy_usd
+    ):
+        cash_before = state.cash_balance
+        spent = state.cash_balance
+        state.btc_balance = spent / current_price
+        state.cash_balance = 0.0
+        state.entry_cash_value = spent
+        state.entry_price = current_price
+        state.last_buy_monotonic = now
+        state.trade_count += 1
+        messages.append(
+            f"AUTO BUY | Spent ${spent:.2f} | Bought {state.btc_balance:.8f} BTC at ${current_price:.2f} "
+            f"after a ${previous_seen_price - current_price:.2f} drop | "
+            f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f}"
+        )
+        return messages
+
+    if (
+        state.btc_balance > 0
+        and state.entry_price is not None
+        and current_price >= state.entry_price + config.rise_to_sell_usd
+    ):
+        entry_price = state.entry_price
+        cash_before = state.cash_balance
+        equity_before = state.btc_balance * current_price
+        received = state.btc_balance * current_price
+        pnl = received - state.entry_cash_value
+        pnl_pct = (pnl / state.entry_cash_value * 100) if state.entry_cash_value else 0.0
+        state.realized_pnl += pnl
+        state.cash_balance = received
+        state.btc_balance = 0.0
+        state.entry_cash_value = 0.0
+        state.entry_price = None
+        state.last_buy_monotonic = None
+        state.next_buy_monotonic = now + config.buy_cooldown_seconds
+        state.trade_count += 1
+        messages.append(
+            f"AUTO SELL | Received ${received:.2f} | P/L {pnl:+.2f} ({pnl_pct:+.2f}%) at ${current_price:.2f} "
+            f"after a ${current_price - entry_price:.2f} rise from entry | "
+            f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f} | "
+            f"Equity before sell: ${equity_before:.2f}"
+        )
+
+    return messages
+
+
+def simulation_summary(current_price: float, state: SimulationState) -> str:
+    equity = state.cash_balance + (state.btc_balance * current_price)
+    unrealized = 0.0
+    if state.btc_balance > 0 and state.entry_cash_value:
+        unrealized = (state.btc_balance * current_price) - state.entry_cash_value
+
+    return (
+        f"SIM | Equity: ${equity:.2f} | Cash: ${state.cash_balance:.2f} | "
+        f"BTC: {state.btc_balance:.8f} | Unrealized: {unrealized:+.2f} | "
+        f"Realized: {state.realized_pnl:+.2f} | Trades: {state.trade_count}"
+    )
+
+
+def print_tracker_update(
+    result: SignalResult,
+    previous_price: float | None,
+    simulation_state: SimulationState | None = None,
+    simulation_messages: list[str] | None = None,
+) -> None:
     timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
     price_move = format_change(result.price, previous_price)
     print(
@@ -725,6 +933,10 @@ def print_tracker_update(result: SignalResult, previous_price: float | None) -> 
         f"Action: {result.execution_action} | "
         f"Confidence: {result.confidence}%"
     )
+    if simulation_state is not None:
+        print(simulation_summary(result.price, simulation_state))
+    for message in simulation_messages or []:
+        print(message)
 
 
 def config_from_args(args: argparse.Namespace) -> AgentConfig:
@@ -841,18 +1053,28 @@ def main() -> int:
     defaults = AgentConfig()
     parser = build_parser(defaults)
     args = parser.parse_args()
+    simulation_config = SimulationConfig()
     if not getattr(args, "once", False) and args.poll_seconds is None:
-        args.poll_seconds = prompt_poll_seconds()
+        args.poll_seconds, simulation_config = prompt_startup_mode()
     elif args.poll_seconds is None:
         args.poll_seconds = defaults.poll_seconds
 
     config = config_from_args(args)
     previous_price: float | None = None
+    simulation_state = create_simulation_state(simulation_config) if simulation_config.enabled else None
 
     try:
         print(f"Using OpenAI model: {config.openai_model}")
         print(f"Signal refresh interval: {config.signal_refresh_seconds} second(s)")
         print(f"Tracking {config.symbol} from Binance every {config.poll_seconds} second(s).")
+        if simulation_config.enabled:
+            print(
+                "Auto simulation enabled: "
+                f"buy cooldown {simulation_config.buy_cooldown_seconds} second(s), "
+                f"buy after a ${simulation_config.drop_to_buy_usd:.2f} drop, "
+                f"sell after a ${simulation_config.rise_to_sell_usd:.2f} rise from entry, "
+                f"starting cash ${simulation_config.starting_cash:.2f}."
+            )
         print("Press Ctrl+C to stop.")
         print("")
         print_startup_status(config)
@@ -864,7 +1086,11 @@ def main() -> int:
                 print_signal(result)
                 return 0
 
-            print_tracker_update(result, previous_price)
+            simulation_messages = []
+            if simulation_state is not None:
+                simulation_messages = update_simulation(result.price, simulation_config, simulation_state)
+
+            print_tracker_update(result, previous_price, simulation_state, simulation_messages)
             previous_price = result.price
             elapsed = time.monotonic() - cycle_started
             sleep_seconds = max(0.0, config.poll_seconds - elapsed)

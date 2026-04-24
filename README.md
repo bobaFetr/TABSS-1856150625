@@ -53,7 +53,17 @@ The default model is `gpt-4.1-nano`.
    - `1 second`
    - `10 seconds`
    - `1 minute`
+   - `5` for `Simulate auto buy and sell`
 4. Leave the terminal window open while the tracker runs
+
+If you choose `5`, the app will ask:
+
+- how much starting money to use, up to `$1000.00`
+- how often it is allowed to buy again
+- how big a BTC price drop should trigger a buy
+- how big a rise from the buy price should trigger a sell
+
+The simulation uses the starting money you enter, up to `$1000.00`, and then simulates trades automatically by buying on drops and selling on rises.
 
 If no key is configured yet, the launcher now asks for your OpenAI API key once and saves it to `.env`.
 
