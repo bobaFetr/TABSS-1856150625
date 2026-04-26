@@ -1,0 +1,452 @@
+"use client";
+
+import {
+  Activity,
+  BadgeDollarSign,
+  BarChart3,
+  BrainCircuit,
+  CircleDollarSign,
+  FileCheck2,
+  Gauge,
+  Pause,
+  Play,
+  RefreshCw,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+  Wallet
+} from "lucide-react";
+import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type Signal = {
+  signal: string;
+  execution_action: string;
+  confidence: number;
+  symbol: string;
+  interval: string;
+  price: number;
+  rsi: number;
+  ema_fast: number;
+  ema_mid: number;
+  ema_slow: number;
+  macd_histogram: number;
+  atr: number;
+  stop_loss: number | null;
+  take_profit: number | null;
+  bullish_score: number;
+  bearish_score: number;
+  reasons: string[];
+  timestamp_utc: string;
+  position_after_signal: string;
+};
+
+type AgentState = {
+  position?: string;
+  last_signal?: string;
+  last_confidence?: number;
+  last_reasons?: string[];
+  last_snapshot?: Partial<Signal> & {
+    live_price?: number;
+  };
+};
+
+type AuditEvent = {
+  eventType?: string;
+  createdAt?: string;
+  finalAction?: string;
+  status?: string;
+  humanReadableReason?: string;
+  payloadHash?: string;
+};
+
+type AutoStatus = {
+  running: boolean;
+  startedAtUtc: string;
+  lastTickUtc: string;
+  lastError: string | null;
+  pollSeconds: number;
+  rules: {
+    startingCash: number;
+    buyCooldownSeconds: number;
+    dropToBuyUsd: number;
+    riseToSellUsd: number;
+  };
+  signal: Signal | null;
+  simulation: {
+    cashBalance?: number;
+    btcBalance?: number;
+    equity?: number;
+    entryPrice?: number | null;
+    realizedPnl?: number;
+    unrealizedPnl?: number;
+    tradeCount?: number;
+    lastSeenPrice?: number;
+  };
+  messages: string[];
+};
+
+const currency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2
+});
+
+function formatPrice(value: number | null | undefined) {
+  return typeof value === "number" ? currency.format(value) : "-";
+}
+
+function formatNumber(value: number | undefined, digits = 2) {
+  return typeof value === "number" ? value.toFixed(digits) : "-";
+}
+
+function formatTime(value: string | undefined) {
+  if (!value) return "Waiting";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(new Date(value));
+}
+
+function toneForSignal(signal: string | undefined) {
+  if (signal === "BUY") return "buy";
+  if (signal === "SELL") return "sell";
+  return "hold";
+}
+
+export default function Home() {
+  const [state, setState] = useState<AgentState | null>(null);
+  const [signal, setSignal] = useState<Signal | null>(null);
+  const [auto, setAuto] = useState<AutoStatus | null>(null);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [runningSignal, setRunningSignal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [settings, setSettings] = useState({
+    startingCash: "500",
+    pollSeconds: "5",
+    buyCooldownSeconds: "5",
+    dropToBuyUsd: "1",
+    riseToSellUsd: "1"
+  });
+  const [settingsTouched, setSettingsTouched] = useState(false);
+
+  const activeSignal = auto?.signal?.signal ?? signal?.signal ?? state?.last_signal ?? "HOLD";
+  const tone = toneForSignal(activeSignal);
+  const snapshot = auto?.signal ?? signal ?? state?.last_snapshot;
+  const reasons = auto?.signal?.reasons ?? signal?.reasons ?? state?.last_reasons ?? [];
+  const btcPrice = auto?.signal?.price ?? signal?.price ?? state?.last_snapshot?.live_price;
+  const btcPosition = (auto?.simulation?.btcBalance ?? 0) > 0 ? "LONG" : "FLAT";
+  const tradeMessages = auto?.messages ?? [];
+
+  const scoreSpread = useMemo(() => {
+    const bullish = snapshot?.bullish_score ?? 0;
+    const bearish = snapshot?.bearish_score ?? 0;
+    return bullish - bearish;
+  }, [snapshot]);
+
+  async function loadDashboard(
+    action: "auto" | "state" | "signal" | "start-auto" | "stop-auto" | "configure-auto" = "auto",
+    params?: URLSearchParams
+  ) {
+    setLoading(true);
+    setError(null);
+    if (action === "signal") setRunningSignal(true);
+
+    try {
+      const [stateResponse, ap2Response] = await Promise.all([
+        fetch(`/api/agent?action=${action}${params ? `&${params.toString()}` : ""}`, { cache: "no-store" }),
+        fetch("/api/agent?action=ap2", { cache: "no-store" })
+      ]);
+
+      const statePayload = await stateResponse.json();
+      const ap2Payload = await ap2Response.json();
+
+      if (!stateResponse.ok || !statePayload.ok) {
+        throw new Error(statePayload.error ?? "Could not reach the Python agent API.");
+      }
+
+      if (statePayload.auto) {
+        setAuto(statePayload.auto);
+        if (statePayload.auto.signal) setSignal(statePayload.auto.signal);
+      } else if (action === "signal") {
+        setSignal(statePayload.signal);
+      } else {
+        setState(statePayload.state);
+      }
+
+      if (ap2Response.ok && ap2Payload.ok) {
+        setAuditEvents(ap2Payload.auditEvents ?? []);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Dashboard refresh failed.");
+    } finally {
+      setLoading(false);
+      setRunningSignal(false);
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard();
+    const timer = window.setInterval(() => loadDashboard(), 2000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!auto || settingsTouched) return;
+    setSettings({
+      startingCash: String(auto.rules.startingCash),
+      pollSeconds: String(auto.pollSeconds),
+      buyCooldownSeconds: String(auto.rules.buyCooldownSeconds),
+      dropToBuyUsd: String(auto.rules.dropToBuyUsd),
+      riseToSellUsd: String(auto.rules.riseToSellUsd)
+    });
+  }, [auto, settingsTouched]);
+
+  function updateSetting(name: keyof typeof settings, value: string) {
+    setSettingsTouched(true);
+    setSettings((current) => ({ ...current, [name]: value }));
+  }
+
+  async function applySettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const params = new URLSearchParams(settings);
+    await loadDashboard("configure-auto", params);
+    setSettingsTouched(false);
+  }
+
+  return (
+    <main className="shell">
+      <section className="commandBar">
+        <div>
+          <p className="eyebrow">BTCUSDT simulated execution desk</p>
+          <h1>Signal Agent</h1>
+        </div>
+        <div className="actions">
+          <button className="button secondary" onClick={() => loadDashboard(auto?.running ? "stop-auto" : "start-auto")} disabled={loading}>
+            {auto?.running ? <Pause size={16} /> : <Play size={16} />}
+            {auto?.running ? "Pause" : "Start"}
+          </button>
+          <button className="button primary" onClick={() => loadDashboard("signal")} disabled={loading}>
+            <RefreshCw size={16} className={runningSignal ? "spin" : ""} />
+            Refresh
+          </button>
+        </div>
+      </section>
+
+      {error ? <div className="alert">{error}</div> : null}
+
+      <section className="heroGrid">
+        <article className={`pricePanel ${tone}`}>
+          <div className="priceHeader">
+            <div>
+              <span className="mutedLabel">Live price</span>
+              <strong>{formatPrice(btcPrice)}</strong>
+            </div>
+            <span className={`signalPill ${tone}`}>{activeSignal}</span>
+          </div>
+          <div className="priceMeta">
+            <Meta label="Position" value={btcPosition} />
+            <Meta label="Confidence" value={`${auto?.signal?.confidence ?? signal?.confidence ?? state?.last_confidence ?? 0}%`} />
+            <Meta label="Last tick" value={formatTime(auto?.lastTickUtc)} />
+            <Meta label="Loop" value={auto?.running ? `${auto.pollSeconds}s` : "Paused"} />
+          </div>
+        </article>
+
+        <article className="portfolioPanel">
+          <div className="panelHead">
+            <Wallet size={17} />
+            <h2>Simulation</h2>
+          </div>
+          <div className="portfolioGrid">
+            <Stat label="Equity" value={formatPrice(auto?.simulation?.equity)} />
+            <Stat label="Cash" value={formatPrice(auto?.simulation?.cashBalance)} />
+            <Stat label="BTC" value={formatNumber(auto?.simulation?.btcBalance, 8)} />
+            <Stat label="Realized" value={formatPrice(auto?.simulation?.realizedPnl)} tone={(auto?.simulation?.realizedPnl ?? 0) >= 0 ? "good" : "bad"} />
+          </div>
+          <div className="ruleStrip">
+            <span>Buy drop {formatPrice(auto?.rules?.dropToBuyUsd)}</span>
+            <span>Sell rise {formatPrice(auto?.rules?.riseToSellUsd)}</span>
+            <span>{auto?.simulation?.tradeCount ?? 0} trades</span>
+          </div>
+          <form className="settingsForm" onSubmit={applySettings}>
+            <label>
+              <span>Money</span>
+              <input
+                min="1"
+                max="1000"
+                step="1"
+                type="number"
+                value={settings.startingCash}
+                onChange={(event) => updateSetting("startingCash", event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Loop sec</span>
+              <input
+                min="1"
+                max="3600"
+                step="1"
+                type="number"
+                value={settings.pollSeconds}
+                onChange={(event) => updateSetting("pollSeconds", event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Buy again sec</span>
+              <input
+                min="0"
+                max="86400"
+                step="1"
+                type="number"
+                value={settings.buyCooldownSeconds}
+                onChange={(event) => updateSetting("buyCooldownSeconds", event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Buy drop $</span>
+              <input
+                min="0.01"
+                step="0.01"
+                type="number"
+                value={settings.dropToBuyUsd}
+                onChange={(event) => updateSetting("dropToBuyUsd", event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Sell rise $</span>
+              <input
+                min="0.01"
+                step="0.01"
+                type="number"
+                value={settings.riseToSellUsd}
+                onChange={(event) => updateSetting("riseToSellUsd", event.target.value)}
+              />
+            </label>
+            <button className="button primary applyButton" type="submit" disabled={loading}>
+              Apply
+            </button>
+          </form>
+        </article>
+      </section>
+
+      <section className="deskGrid">
+        <article className="panel marketPanel">
+          <div className="panelHead">
+            <BarChart3 size={17} />
+            <h2>Market</h2>
+          </div>
+          <div className="indicatorList">
+            <Indicator icon={<Gauge size={16} />} label="RSI" value={formatNumber(snapshot?.rsi)} />
+            <Indicator icon={<TrendingUp size={16} />} label="Bullish score" value={String(snapshot?.bullish_score ?? 0)} tone="good" />
+            <Indicator icon={<TrendingDown size={16} />} label="Bearish score" value={String(snapshot?.bearish_score ?? 0)} tone="bad" />
+            <Indicator icon={<BadgeDollarSign size={16} />} label="ATR" value={formatPrice(snapshot?.atr)} />
+            <Indicator icon={<Activity size={16} />} label="Spread" value={String(scoreSpread)} tone={scoreSpread >= 0 ? "good" : "bad"} />
+            <Indicator icon={<CircleDollarSign size={16} />} label="Entry" value={formatPrice(auto?.simulation?.entryPrice)} />
+          </div>
+          <div className="emaTable">
+            <div><span>EMA fast</span><strong>{formatPrice(snapshot?.ema_fast)}</strong></div>
+            <div><span>EMA mid</span><strong>{formatPrice(snapshot?.ema_mid)}</strong></div>
+            <div><span>EMA slow</span><strong>{formatPrice(snapshot?.ema_slow)}</strong></div>
+          </div>
+        </article>
+
+        <article className="panel feedPanel">
+          <div className="panelHead">
+            <BrainCircuit size={17} />
+            <h2>Agent Feed</h2>
+          </div>
+          <div className="feedList">
+            {auto?.lastError ? <FeedItem tone="bad" title="Agent error" text={auto.lastError} /> : null}
+            {tradeMessages.slice(-4).reverse().map((message) => (
+              <FeedItem key={message} tone={message.includes("BUY") ? "good" : message.includes("SELL") ? "warn" : "neutral"} title="Simulation event" text={message} />
+            ))}
+            {reasons.slice(0, 4).map((reason) => (
+              <FeedItem key={reason} title="Signal reason" text={reason} />
+            ))}
+            {!reasons.length && !tradeMessages.length ? <FeedItem title="Waiting" text="The first automatic cycle has not completed yet." /> : null}
+          </div>
+        </article>
+
+        <article className="panel auditPanel">
+          <div className="panelHead">
+            <ShieldCheck size={17} />
+            <h2>AP2 Audit</h2>
+          </div>
+          <div className="auditList">
+            {auditEvents.length ? (
+              auditEvents.slice().reverse().slice(0, 8).map((event, index) => (
+                <div className="auditRow" key={`${event.payloadHash}-${index}`}>
+                  <FileCheck2 size={16} />
+                  <div>
+                    <strong>{event.eventType ?? "Audit event"}</strong>
+                    <span>{event.humanReadableReason ?? event.status ?? "Recorded"}</span>
+                  </div>
+                  <small>{event.finalAction ?? "HOLD"}</small>
+                </div>
+              ))
+            ) : (
+              <p className="empty">No AP2 simulation events have been recorded yet.</p>
+            )}
+          </div>
+        </article>
+      </section>
+    </main>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="meta">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" }) {
+  return (
+    <div className="stat">
+      <span>{label}</span>
+      <strong className={tone ?? ""}>{value}</strong>
+    </div>
+  );
+}
+
+function Indicator({
+  icon,
+  label,
+  value,
+  tone
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: "good" | "bad";
+}) {
+  return (
+    <div className="indicator">
+      {icon}
+      <span>{label}</span>
+      <strong className={tone ?? ""}>{value}</strong>
+    </div>
+  );
+}
+
+function FeedItem({
+  title,
+  text,
+  tone = "neutral"
+}: {
+  title: string;
+  text: string;
+  tone?: "good" | "bad" | "warn" | "neutral";
+}) {
+  return (
+    <div className={`feedItem ${tone}`}>
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </div>
+  );
+}

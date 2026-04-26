@@ -12,6 +12,8 @@ This is a Python console agent that watches `BTCUSDT` on Binance, prints the liv
 ## Files
 
 - `btc_agent.py` - console tracker and OpenAI signal logic
+- `api_server.py` - local JSON API used by the Next.js dashboard
+- `web/` - Next.js dashboard for the local agent
 - `start_web_app.ps1` - PowerShell launcher
 - `start_web_app.bat` - double-click starter
 - `agent_state.json` - remembers whether the agent is currently `FLAT` or `LONG`
@@ -72,6 +74,38 @@ If you prefer PowerShell:
 ```powershell
 .\start_web_app.ps1
 ```
+
+## Next.js Dashboard
+
+Start the dashboard with one command:
+
+```cmd
+START_DASHBOARD.cmd
+```
+
+Open `http://127.0.0.1:8765`. Press `Ctrl+C` in the terminal to stop it.
+
+This command does not use `npm`, PowerShell execution policy, or a separate Next.js dev server. The Python API serves the dashboard and the live agent from the same local address.
+
+The Next.js app in `web/` is still available for development, but you do not need it to run the dashboard.
+
+Optional custom ports:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start_dashboard.ps1 -ApiPort 8765 -WebPort 3000
+```
+
+The web dashboard runs the simulation automatically. By default it checks BTC every 5 seconds, starts with `$500.00` simulated cash, buys after a `$1.00` drop from the previous observed price, and sells after a `$1.00` rise from the simulated entry price. This is still simulation only: no real Binance orders are placed and no real money moves.
+
+You can change these rules from the dashboard:
+
+- `Money` - simulated cash to start with, from `$1.00` to `$1000.00`
+- `Loop sec` - how often the agent checks BTC
+- `Buy again sec` - cooldown before another simulated buy is allowed
+- `Buy drop $` - how far BTC must drop from the previous observed price before buying
+- `Sell rise $` - how far BTC must rise from the simulated entry price before selling
+
+Press `Apply` to restart the simulation with the new values.
 
 ## Example Console Output
 

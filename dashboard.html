@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BTC Signal Agent</title>
+  <style>
+    :root { --bg:#eef2f6; --surface:#fff; --soft:#f8fafc; --ink:#141923; --muted:#687386; --line:#d9e0ea; --green:#0f8a4b; --red:#c0352b; --amber:#b76b12; --blue:#2557d6; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(180deg,#f7f9fc 0,var(--bg) 300px); color:var(--ink); font-family:Arial,Helvetica,sans-serif; }
+    main { width:min(1220px,calc(100vw - 28px)); margin:0 auto; padding:22px 0 38px; }
+    .bar,.actions,.priceHead,.panelHead { display:flex; align-items:center; gap:12px; }
+    .bar { justify-content:space-between; margin-bottom:18px; }
+    h1,h2 { margin:0; } h1{font-size:1.45rem;} h2{font-size:.98rem;}
+    .eyebrow,.label { color:var(--muted); font-size:.74rem; font-weight:800; text-transform:uppercase; }
+    button { border:0; min-height:38px; padding:0 13px; border-radius:7px; font:inherit; font-weight:800; cursor:pointer; }
+    .primary { background:var(--ink); color:#fff; } .secondary { border:1px solid var(--line); background:#fff; color:var(--ink); }
+    .hero { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(360px,.65fr); gap:14px; margin-bottom:14px; }
+    .desk { display:grid; grid-template-columns:minmax(260px,.72fr) minmax(0,1fr) minmax(300px,.82fr); gap:14px; align-items:start; }
+    .card { border:1px solid var(--line); border-radius:8px; background:var(--surface); box-shadow:0 18px 45px rgba(26,36,55,.09); padding:17px; }
+    .price { min-height:214px; padding:22px; border-top:4px solid var(--amber); }
+    .price.buy{border-top-color:var(--green)} .price.sell{border-top-color:var(--red)}
+    .priceHead { align-items:flex-start; justify-content:space-between; }
+    .big { display:block; font-size:clamp(2.35rem,6vw,5.25rem); line-height:.95; margin-top:5px; }
+    .pill { min-width:82px; padding:8px 12px; border-radius:999px; color:#fff; text-align:center; font-weight:900; background:var(--amber); }
+    .pill.buy{background:var(--green)} .pill.sell{background:var(--red)}
+    .meta,.stats,.settings { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; overflow:hidden; border:1px solid var(--line); border-radius:8px; background:var(--line); margin-top:24px; }
+    .meta div,.stat { min-height:68px; padding:12px; background:var(--soft); }
+    .stats { grid-template-columns:1fr 1fr; gap:9px; border:0; background:transparent; margin-top:0; }
+    .stat { border:1px solid var(--line); border-radius:7px; }
+    .stat strong,.meta strong,.indicator strong { display:block; margin-top:5px; font-size:1.05rem; }
+    .rules { display:grid; gap:7px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:.86rem; font-weight:700; }
+    .settings { grid-template-columns:1fr 1fr; gap:9px; border:0; background:transparent; margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
+    label { display:grid; gap:5px; } label span { color:var(--muted); font-size:.74rem; font-weight:800; text-transform:uppercase; }
+    input { width:100%; min-height:36px; border:1px solid var(--line); border-radius:7px; padding:0 10px; font:inherit; font-weight:800; }
+    .apply { grid-column:1/-1; }
+    .list { display:grid; gap:8px; }
+    .indicator { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; min-height:44px; padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:var(--soft); }
+    .ema { display:grid; gap:8px; margin-top:13px; padding-top:13px; border-top:1px solid var(--line); }
+    .ema div { display:flex; justify-content:space-between; gap:10px; }
+    .feed,.audit { display:grid; gap:9px; }
+    .feedItem { padding:12px 13px; border-left:3px solid var(--blue); border-radius:0 7px 7px 0; background:var(--soft); }
+    .feedItem.good{border-left-color:var(--green)} .feedItem.bad{border-left-color:var(--red)} .feedItem.warn{border-left-color:var(--amber)}
+    .feedItem strong,.auditRow strong { display:block; margin-bottom:4px; font-size:.88rem; }
+    .feedItem span,.auditRow span,.empty { color:#364255; font-size:.9rem; line-height:1.42; }
+    .auditRow { display:grid; grid-template-columns:1fr auto; gap:10px; min-height:58px; padding:10px; border:1px solid var(--line); border-radius:7px; background:var(--soft); }
+    .auditRow small { padding:5px 7px; border-radius:999px; background:#e8f1ff; color:#174ea6; font-weight:900; }
+    .good{color:var(--green)} .bad{color:var(--red)}
+    .alert { display:none; margin-bottom:14px; padding:11px 13px; border:1px solid #f0b7b1; border-radius:7px; background:#fff1ef; color:var(--red); font-weight:800; }
+    @media(max-width:1050px){.hero,.desk{grid-template-columns:1fr}.card{min-height:auto}}
+    @media(max-width:680px){main{width:min(100vw - 18px,620px);padding-top:14px}.bar,.actions,.priceHead{align-items:stretch;flex-direction:column}.meta{grid-template-columns:1fr 1fr}.big{font-size:2.5rem}}
+  </style>
+</head>
+<body>
+<main>
+  <section class="bar">
+    <div><div class="eyebrow">BTCUSDT simulated execution desk</div><h1>Signal Agent</h1></div>
+    <div class="actions"><button id="toggle" class="secondary">Pause</button><button id="refresh" class="primary">Refresh</button></div>
+  </section>
+  <div id="alert" class="alert"></div>
+  <section class="hero">
+    <article id="priceCard" class="card price hold">
+      <div class="priceHead"><div><span class="label">Live price</span><strong id="price" class="big">-</strong></div><span id="signal" class="pill hold">HOLD</span></div>
+      <div class="meta"><div><span class="label">Position</span><strong id="position">FLAT</strong></div><div><span class="label">Confidence</span><strong id="confidence">0%</strong></div><div><span class="label">Last tick</span><strong id="lastTick">Waiting</strong></div><div><span class="label">Loop</span><strong id="loop">-</strong></div></div>
+    </article>
+    <article class="card">
+      <div class="panelHead"><h2>Simulation</h2></div>
+      <div class="stats"><div class="stat"><span class="label">Equity</span><strong id="equity">-</strong></div><div class="stat"><span class="label">Cash</span><strong id="cash">-</strong></div><div class="stat"><span class="label">BTC</span><strong id="btc">-</strong></div><div class="stat"><span class="label">Realized</span><strong id="realized">-</strong></div></div>
+      <div class="rules"><span id="buyRule">Buy drop -</span><span id="sellRule">Sell rise -</span><span id="trades">0 trades</span></div>
+      <form id="settings" class="settings">
+        <label><span>Money</span><input id="startingCash" type="number" min="1" max="1000" step="1"></label>
+        <label><span>Loop sec</span><input id="pollSeconds" type="number" min="1" max="3600" step="1"></label>
+        <label><span>Buy again sec</span><input id="buyCooldownSeconds" type="number" min="0" max="86400" step="1"></label>
+        <label><span>Buy drop $</span><input id="dropToBuyUsd" type="number" min="0.01" step="0.01"></label>
+        <label><span>Sell rise $</span><input id="riseToSellUsd" type="number" min="0.01" step="0.01"></label>
+        <button class="primary apply" type="submit">Apply</button>
+      </form>
+    </article>
+  </section>
+  <section class="desk">
+    <article class="card"><div class="panelHead"><h2>Market</h2></div><div id="market" class="list"></div><div id="ema" class="ema"></div></article>
+    <article class="card"><div class="panelHead"><h2>Agent Feed</h2></div><div id="feed" class="feed"></div></article>
+    <article class="card"><div class="panelHead"><h2>AP2 Audit</h2></div><div id="audit" class="audit"></div></article>
+  </section>
+</main>
+<script>
+const money = new Intl.NumberFormat("en-US", {style:"currency", currency:"USD", maximumFractionDigits:2});
+const $ = (id) => document.getElementById(id);
+let touched = false;
+const inputIds = ["startingCash","pollSeconds","buyCooldownSeconds","dropToBuyUsd","riseToSellUsd"];
+inputIds.forEach(id => $(id).addEventListener("input", () => touched = true));
+function fmt(v){ return typeof v === "number" ? money.format(v) : "-"; }
+function num(v,d=2){ return typeof v === "number" ? v.toFixed(d) : "-"; }
+function time(v){ return v ? new Intl.DateTimeFormat("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(new Date(v)) : "Waiting"; }
+function tone(signal){ return signal === "BUY" ? "buy" : signal === "SELL" ? "sell" : "hold"; }
+function setText(id, value){ $(id).textContent = value; }
+async function getJson(path){ const r = await fetch(path, {cache:"no-store"}); const j = await r.json(); if(!r.ok || !j.ok) throw new Error(j.error || "Request failed"); return j; }
+function syncInputs(auto){
+  if (touched || !auto) return;
+  $("startingCash").value = auto.rules.startingCash;
+  $("pollSeconds").value = auto.pollSeconds;
+  $("buyCooldownSeconds").value = auto.rules.buyCooldownSeconds;
+  $("dropToBuyUsd").value = auto.rules.dropToBuyUsd;
+  $("riseToSellUsd").value = auto.rules.riseToSellUsd;
+}
+function renderAuto(auto){
+  const signal = auto.signal || {};
+  const sim = auto.simulation || {};
+  const rules = auto.rules || {};
+  const t = tone(signal.signal);
+  $("priceCard").className = "card price " + t;
+  $("signal").className = "pill " + t;
+  setText("signal", signal.signal || "HOLD");
+  setText("price", fmt(signal.price));
+  setText("position", sim.btcBalance > 0 ? "LONG" : "FLAT");
+  setText("confidence", `${signal.confidence || 0}%`);
+  setText("lastTick", time(auto.lastTickUtc));
+  setText("loop", auto.running ? `${auto.pollSeconds}s` : "Paused");
+  setText("toggle", auto.running ? "Pause" : "Start");
+  setText("equity", fmt(sim.equity)); setText("cash", fmt(sim.cashBalance)); setText("btc", num(sim.btcBalance,8)); setText("realized", fmt(sim.realizedPnl));
+  setText("buyRule", `Buy drop ${fmt(rules.dropToBuyUsd)}`); setText("sellRule", `Sell rise ${fmt(rules.riseToSellUsd)}`); setText("trades", `${sim.tradeCount || 0} trades`);
+  const spread = (signal.bullish_score || 0) - (signal.bearish_score || 0);
+  $("market").innerHTML = [
+    ["RSI", num(signal.rsi)], ["Bullish score", signal.bullish_score ?? 0], ["Bearish score", signal.bearish_score ?? 0],
+    ["ATR", fmt(signal.atr)], ["Spread", spread], ["Entry", fmt(sim.entryPrice)]
+  ].map(([a,b]) => `<div class="indicator"><span class="label">${a}</span><strong>${b}</strong></div>`).join("");
+  $("ema").innerHTML = [["EMA fast", fmt(signal.ema_fast)],["EMA mid", fmt(signal.ema_mid)],["EMA slow", fmt(signal.ema_slow)]].map(([a,b]) => `<div><span class="label">${a}</span><strong>${b}</strong></div>`).join("");
+  const messages = [...(auto.messages || []).slice(-4).reverse(), ...(signal.reasons || []).slice(0,4)];
+  $("feed").innerHTML = (auto.lastError ? [`Agent error: ${auto.lastError}`] : messages).map(m => `<div class="feedItem ${m.includes("BUY") ? "good" : m.includes("SELL") ? "warn" : ""}"><strong>${m.startsWith("Agent error") ? "Error" : "Event"}</strong><span>${m}</span></div>`).join("") || `<div class="feedItem"><strong>Waiting</strong><span>The first automatic cycle has not completed yet.</span></div>`;
+  syncInputs(auto);
+}
+async function refresh(){
+  try {
+    $("alert").style.display = "none";
+    const [auto, ap2] = await Promise.all([getJson("/auto/status"), getJson("/ap2?limit=12")]);
+    renderAuto(auto.auto);
+    $("audit").innerHTML = (ap2.auditEvents || []).slice().reverse().slice(0,8).map(e => `<div class="auditRow"><div><strong>${e.eventType || "Audit event"}</strong><span>${e.humanReadableReason || e.status || "Recorded"}</span></div><small>${e.finalAction || "HOLD"}</small></div>`).join("") || `<p class="empty">No AP2 simulation events have been recorded yet.</p>`;
+  } catch (e) {
+    $("alert").textContent = e.message; $("alert").style.display = "block";
+  }
+}
+$("toggle").onclick = async () => { const running = $("toggle").textContent === "Pause"; await getJson(running ? "/auto/stop" : "/auto/start"); await refresh(); };
+$("refresh").onclick = refresh;
+$("settings").onsubmit = async (e) => { e.preventDefault(); const p = new URLSearchParams(); inputIds.forEach(id => p.set(id, $(id).value)); await getJson("/auto/configure?" + p.toString()); touched = false; await refresh(); };
+refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>
