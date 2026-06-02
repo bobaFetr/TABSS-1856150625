@@ -1,111 +1,220 @@
 # BTC Binance Signal Agent
 
-This is a Python console agent that watches `BTCUSDT` on Binance, prints the live BTC price changes in the terminal, and asks OpenAI for a `BUY`, `SELL`, or `HOLD` signal based on the current market snapshot.
+A Python-based trading signal agent that watches `BTCUSDT` on Binance in real time, computes technical indicators (RSI, EMA, MACD, ATR), and queries OpenAI for a `BUY`, `SELL`, or `HOLD` recommendation. Includes a built-in web dashboard, a local JSON API, an auto-simulation mode, and an AP2-inspired mandate audit trail.
 
-## What Changed
+> **This is a simulation only. No real orders are placed and no real money moves.**
 
-- the printed BTC price now comes from Binance's live ticker endpoint
-- the trading signal now uses your `OPENAI_API_KEY`
-- the same easy start method still works
-- the AI signal is cached and refreshed every 5 minutes by default, so fast price updates do not trigger OpenAI on every loop
+---
 
-## Files
+## Project Structure
 
-- `btc_agent.py` - console tracker and OpenAI signal logic
-- `api_server.py` - local JSON API used by the Next.js dashboard
-- `web/` - Next.js dashboard for the local agent
-- `start_web_app.ps1` - PowerShell launcher
-- `start_web_app.bat` - double-click starter
-- `agent_state.json` - remembers whether the agent is currently `FLAT` or `LONG`
+```
+python-ai-agent-buy-sell/
+├── btc_agent.py            # Core agent: market data, indicators, OpenAI signal, simulation engine
+├── api_server.py           # Local HTTP API (port 8765) + dashboard server
+├── ap2_sim.py              # AP2-inspired mandate creation, signing, and audit logging
+├── dashboard.html          # Standalone web dashboard (served by api_server.py)
+├── web/                    # Next.js dashboard (optional development UI)
+├── agent_state.json        # Persisted agent position state (FLAT / LONG)
+├── auto_sim_state.json     # Latest auto-simulation snapshot (written each tick)
+├── ap2_mandates/           # Active intent mandate JSON
+├── ap2_logs/               # AP2 audit log files
+├── .env                    # Your local secrets (not committed)
+├── .env.example            # Example environment variable template
+├── START_DASHBOARD.cmd     # One-click dashboard launcher (Windows)
+├── start_dashboard.bat     # Alternative double-click launcher (Windows)
+├── start_dashboard.ps1     # PowerShell launcher with optional port arguments
+├── start_web_app.bat       # Console agent launcher with menu (Windows)
+└── start_web_app.ps1       # PowerShell console agent launcher
+```
+
+---
+
+## Requirements
+
+- Python 3.11 or later (no third-party packages required — uses only the standard library)
+- An [OpenAI API key](https://platform.openai.com/account/api-keys)
+- Internet access to reach `api.binance.com`
+
+---
 
 ## First-Time Setup
 
-Best option for double-click startup:
+1. Create a `.env` file in the project root (copy from `.env.example`):
 
-1. Create a file named `.env` in this folder
-2. Copy the contents of `.env.example`
-3. Replace the key with your real key
-
-Example `.env`:
-
-```text
+```env
 OPENAI_API_KEY=your_api_key_here
 OPENAI_MODEL=gpt-4.1-nano
+BINANCE_SYMBOL=BTCUSDT
+BINANCE_INTERVAL=15m
+BINANCE_LOOKBACK=250
+OPENAI_TIMEOUT=20
 ```
 
-You can also set the key only for your current PowerShell session:
+2. If no `.env` is found, the PowerShell launcher will prompt you for your key and save it automatically.
 
-```powershell
-$env:OPENAI_API_KEY="your_api_key_here"
+---
+
+## Quickstart
+
+### Windows — double-click launcher
+
+```
+start_web_app.bat
 ```
 
-Optional model override:
+Choose an update speed from the menu:
 
-```powershell
-$env:OPENAI_MODEL="gpt-4.1-nano"
-```
+| Option | Speed |
+|--------|-------|
+| `1` | Every 1 second |
+| `2` | Every 10 seconds |
+| `3` | Every 1 minute |
+| `5` | Auto buy/sell simulation |
 
-The default model is `gpt-4.1-nano`.
+If you choose **5 (Auto simulation)**, you will be asked:
 
-## Easiest Start Method
+- Starting cash (up to `$1000.00`)
+- Buy cooldown (seconds before another buy is allowed)
+- Buy trigger (USD drop from the last observed price)
+- Sell trigger (USD rise from the simulated entry price)
 
-1. Put your key in `.env` or set `OPENAI_API_KEY`
-2. Double-click `start_web_app.bat`
-3. Choose the update speed:
-   - `1 second`
-   - `10 seconds`
-   - `1 minute`
-   - `5` for `Simulate auto buy and sell`
-4. Leave the terminal window open while the tracker runs
-
-If you choose `5`, the app will ask:
-
-- how much starting money to use, up to `$1000.00`
-- how often it is allowed to buy again
-- how big a BTC price drop should trigger a buy
-- how big a rise from the buy price should trigger a sell
-
-The simulation uses the starting money you enter, up to `$1000.00`, and then simulates trades automatically by buying on drops and selling on rises.
-
-If no key is configured yet, the launcher now asks for your OpenAI API key once and saves it to `.env`.
-
-If you prefer PowerShell:
+### Windows — PowerShell
 
 ```powershell
 .\start_web_app.ps1
 ```
 
-## Next.js Dashboard
+### Linux / macOS — direct Python
 
-Start the dashboard with one command:
+```bash
+python btc_agent.py --poll-seconds 10
+```
+
+Run once and exit:
+
+```bash
+python btc_agent.py --once
+```
+
+---
+
+## Web Dashboard
+
+The dashboard is the easiest way to monitor and control the simulation.
+
+**Start the dashboard:**
 
 ```cmd
 START_DASHBOARD.cmd
 ```
 
-Open `http://127.0.0.1:8765`. Press `Ctrl+C` in the terminal to stop it.
+Then open **http://127.0.0.1:8765** in your browser.
 
-This command does not use `npm`, PowerShell execution policy, or a separate Next.js dev server. The Python API serves the dashboard and the live agent from the same local address.
+The dashboard is served directly by `api_server.py` from `dashboard.html` — no Node.js or `npm` is needed at runtime.
 
-The Next.js app in `web/` is still available for development, but you do not need it to run the dashboard.
-
-Optional custom ports:
+**With custom ports (PowerShell):**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start_dashboard.ps1 -ApiPort 8765 -WebPort 3000
 ```
 
-The web dashboard runs the simulation automatically. By default it checks BTC every 5 seconds, starts with `$500.00` simulated cash, buys after a `$1.00` drop from the previous observed price, and sells after a `$1.00` rise from the simulated entry price. This is still simulation only: no real Binance orders are placed and no real money moves.
+### Dashboard simulation defaults
 
-You can change these rules from the dashboard:
+| Setting | Default | Range |
+|---------|---------|-------|
+| Starting cash | `$500.00` | `$1.00` – `$1000.00` |
+| Loop interval | 5 seconds | 1 – 3600 seconds |
+| Buy cooldown | 5 seconds | 0 – 86400 seconds |
+| Buy trigger (drop) | `$1.00` | `$0.01` – `$100000.00` |
+| Sell trigger (rise) | `$1.00` | `$0.01` – `$100000.00` |
 
-- `Money` - simulated cash to start with, from `$1.00` to `$1000.00`
-- `Loop sec` - how often the agent checks BTC
-- `Buy again sec` - cooldown before another simulated buy is allowed
-- `Buy drop $` - how far BTC must drop from the previous observed price before buying
-- `Sell rise $` - how far BTC must rise from the simulated entry price before selling
+Press **Apply** on the dashboard to restart the simulation with new values.
 
-Press `Apply` to restart the simulation with the new values.
+---
+
+## Local JSON API
+
+`api_server.py` starts a `ThreadingHTTPServer` on `http://127.0.0.1:8765`.
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` or `/dashboard` | Serves `dashboard.html` |
+| `GET /health` | Returns `{"ok": true}` with API version |
+| `GET /signal` | Runs one agent cycle and returns the signal result |
+| `GET /state` | Returns the current `agent_state.json` contents |
+| `GET /auto/start` | Starts the background auto-simulation runner |
+| `GET /auto/stop` | Stops the auto-simulation runner |
+| `GET /auto/status` | Returns current simulation state and last signal |
+| `GET /auto/configure` | Reconfigures and restarts the runner with query params |
+| `GET /ap2` | Returns the active intent mandate and audit log entries |
+
+**`/auto/configure` query parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pollSeconds` | int | How often the agent polls Binance (1–3600) |
+| `startingCash` | float | Simulated starting cash (1.00–1000.00) |
+| `buyCooldownSeconds` | int | Minimum seconds between buys (0–86400) |
+| `dropToBuyUsd` | float | USD drop required to trigger a buy (0.01–100000) |
+| `riseToSellUsd` | float | USD rise from entry required to trigger a sell (0.01–100000) |
+
+---
+
+## Technical Indicators
+
+All indicators are computed in pure Python from Binance kline data with no external libraries.
+
+| Indicator | Parameters |
+|-----------|-----------|
+| EMA (fast) | Period 9 |
+| EMA (mid) | Period 21 |
+| EMA (slow) | Period 55 |
+| RSI | Period 14 |
+| MACD | Fast 12 / Slow 26 / Signal 9 |
+| ATR | Period 14 |
+
+The rule-based scoring system counts bullish and bearish signals from the above indicators. When `bullish_score - bearish_score >= BUY_THRESHOLD` the rule engine suggests BUY; when the gap is `<= -SELL_THRESHOLD` it suggests SELL. The OpenAI model receives this context alongside the raw indicator values and decides the final signal.
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | _(required)_ | OpenAI API key |
+| `OPENAI_MODEL` | `gpt-4.1-nano` | OpenAI model to use |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1/responses` | OpenAI endpoint |
+| `OPENAI_TIMEOUT` | `20` | Request timeout in seconds |
+| `SIGNAL_REFRESH_SECONDS` | `300` | Seconds between OpenAI refreshes |
+| `BINANCE_SYMBOL` | `BTCUSDT` | Trading pair to watch |
+| `BINANCE_INTERVAL` | `15m` | Kline interval |
+| `BINANCE_LOOKBACK` | `250` | Number of candles to fetch |
+| `BINANCE_BASE_URL` | `https://api.binance.com` | Binance API base URL |
+| `BINANCE_RETRY_COUNT` | `3` | Retries on Binance timeout |
+| `BINANCE_RETRY_DELAY_SECONDS` | `2` | Delay between retries |
+| `POLL_SECONDS` | `60` | Price check interval |
+| `BUY_THRESHOLD` | `4` | Min bullish score gap to suggest BUY |
+| `SELL_THRESHOLD` | `4` | Min bearish score gap to suggest SELL |
+| `REQUEST_TIMEOUT` | `10` | HTTP request timeout in seconds |
+| `AP2_SIM_SECRET` | _(internal fallback)_ | HMAC secret for AP2 mandate signing |
+| `AUTO_SIM_ENABLED` | `true` | Auto-start the simulation runner on API server start |
+| `AUTO_SIM_POLL_SECONDS` | `5` | Poll interval for auto simulation |
+| `AUTO_SIM_SIGNAL_REFRESH_SECONDS` | same as poll | Signal refresh interval for auto simulation |
+| `AUTO_SIM_STARTING_CASH` | `500.0` | Starting cash for auto simulation |
+| `AUTO_SIM_BUY_COOLDOWN_SECONDS` | `5` | Buy cooldown for auto simulation |
+| `AUTO_SIM_DROP_TO_BUY_USD` | `1.0` | Buy trigger for auto simulation |
+| `AUTO_SIM_RISE_TO_SELL_USD` | `1.0` | Sell trigger for auto simulation |
+| `AGENT_API_HOST` | `127.0.0.1` | API server bind address |
+| `AGENT_API_PORT` | `8765` | API server port |
+
+If `api.binance.com` is unavailable in your region, use:
+
+```env
+BINANCE_BASE_URL=https://api.binance.us
+```
+
+---
 
 ## Example Console Output
 
@@ -125,78 +234,35 @@ SIM | Equity: $500.05 | Cash: $500.05 | BTC: 0.00000000 | Unrealized: +0.00 | Re
 AUTO SELL | Received $500.05 | P/L +0.05 (+0.01%) at $77918.85 after a $8.05 rise from entry | Cash: $0.00 -> $500.05 | Equity before sell: $500.05
 ```
 
-## Optional Direct Commands
-
-Run once:
-
-```powershell
-C:\Users\Lenovo\AppData\Local\Python\pythoncore-3.14-64\python.exe .\btc_agent.py --once
-```
-
-Run live with a fixed refresh speed:
-
-```powershell
-C:\Users\Lenovo\AppData\Local\Python\pythoncore-3.14-64\python.exe .\btc_agent.py --poll-seconds 10
-```
-
-## Optional Settings
-
-```powershell
-$env:BINANCE_SYMBOL="BTCUSDT"
-$env:BINANCE_INTERVAL="15m"
-$env:BINANCE_LOOKBACK="250"
-$env:POLL_SECONDS="60"
-$env:BINANCE_BASE_URL="https://api.binance.com"
-$env:BUY_THRESHOLD="4"
-$env:SELL_THRESHOLD="4"
-$env:OPENAI_TIMEOUT="20"
-$env:SIGNAL_REFRESH_SECONDS="300"
-$env:BINANCE_RETRY_COUNT="3"
-$env:BINANCE_RETRY_DELAY_SECONDS="2"
-```
-
-If `api.binance.com` is unavailable for your region, try:
-
-```powershell
-$env:BINANCE_BASE_URL="https://api.binance.us"
-```
-
-## Important Notes
-
-- this does not place trades automatically
-- this is not financial advice
-- the BTC price can refresh every second, but the OpenAI signal refreshes every 5 minutes by default
-- if OpenAI is unavailable or out of quota, the tracker now keeps running and falls back to a cached or rule-based signal
-- if Binance times out, the tracker now retries automatically and then keeps running with the last known price instead of exiting
-- console output is printed in separated blocks so each update is easier to read
+---
 
 ## AP2-Inspired Simulation
 
-This project does not implement real AP2 payment rails. It simulates AP2-style mandate concepts for education, auditability, and a graduation project.
+This project simulates AP2-style payment mandate concepts for education and auditability. It does **not** implement real AP2 payment rails.
 
-- `Intent Mandate` = the user's authorization for simulated BTCUSDT trading rules
-- `Cart Mandate` = a proposed simulated BUY or SELL
-- `Payment Mandate` = the final record for an executed simulated trade
-- all mandates are hashed with SHA-256 and signed with simulated HMAC signatures
-- no real money is moved
-- no real Binance orders are placed
-- the simulation stays in `SIMULATION` mode only
+### Mandate types
 
-AP2 simulation files:
+| Mandate | Purpose |
+|---------|---------|
+| `Intent Mandate` | User authorization for simulated trading rules |
+| `Cart Mandate` | Proposed simulated BUY or SELL |
+| `Payment Mandate` | Final record for an executed simulated trade |
 
-- [ap2_sim.py](</c:/Users/Lenovo/Desktop/python ai agent buy sell/ap2_sim.py:1>) - mandate creation, signing, validation, and audit logging
-- [ap2_mandates/active_intent_mandate.json](</c:/Users/Lenovo/Desktop/python ai agent buy sell/ap2_mandates/active_intent_mandate.json:1>) - active user simulation authorization
-- [ap2_logs/ap2_simulation_log.jsonl](</c:/Users/Lenovo/Desktop/python ai agent buy sell/ap2_logs/ap2_simulation_log.jsonl:1>) - audit trail of mandate and simulated trade events
+All mandates are:
+- SHA-256 hashed for integrity
+- HMAC-signed using `AP2_SIM_SECRET`
+- Written to `ap2_logs/ap2_operations.json` and `ap2_logs/ap2_simulation_log.jsonl`
 
-Environment variable for simulated signing:
+### AP2 files
 
-```powershell
-$env:AP2_SIM_SECRET="your_local_simulation_secret"
-```
+| File | Description |
+|------|-------------|
+| `ap2_sim.py` | Mandate creation, signing, validation, and audit logging |
+| `ap2_mandates/active_intent_mandate.json` | Currently active user authorization |
+| `ap2_logs/ap2_operations.json` | Structured operations audit log |
+| `ap2_logs/ap2_simulation_log.jsonl` | Line-delimited audit trail |
 
-If `AP2_SIM_SECRET` is missing, the app uses a safe local development fallback secret internally.
-
-Supported AP2 simulation audit events:
+### Supported audit event types
 
 - `INTENT_MANDATE_CREATED`
 - `CART_MANDATE_CREATED`
@@ -205,8 +271,34 @@ Supported AP2 simulation audit events:
 - `SIMULATED_TRADE_BLOCKED`
 - `MANDATE_VALIDATION_FAILED`
 
-Simple self-test:
+### AP2 self-test
 
-```powershell
-C:\Users\Lenovo\AppData\Local\Python\pythoncore-3.14-64\python.exe -c "import json, ap2_sim; print(json.dumps(ap2_sim.run_self_test(), indent=2))"
+```bash
+python -c "import json, ap2_sim; print(json.dumps(ap2_sim.run_self_test(), indent=2))"
 ```
+
+---
+
+## Next.js Dashboard (optional)
+
+The `web/` folder contains a Next.js 14 + React 18 development dashboard. You do **not** need it to run the agent — `dashboard.html` served by the Python API is sufficient.
+
+To develop or extend the Next.js UI:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+The dev server runs on `http://localhost:3000` and connects to the Python API at `http://127.0.0.1:8765`.
+
+---
+
+## Important Notes
+
+- **No real trades are ever placed.** This is simulation only.
+- **Not financial advice.**
+- The live BTC price refreshes as fast as `POLL_SECONDS` allows, but the OpenAI signal is cached and refreshes every `SIGNAL_REFRESH_SECONDS` (default: 5 minutes) to reduce API costs.
+- If OpenAI is unavailable or over quota, the agent continues running using the last cached or rule-based signal.
+- If Binance times out, the agent retries automatically (`BINANCE_RETRY_COUNT` times) and then continues with the last known price instead of exiting.
