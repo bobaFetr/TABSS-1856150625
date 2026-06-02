@@ -15,6 +15,7 @@ MANDATES_DIR = BASE_DIR / "ap2_mandates"
 LOGS_DIR = BASE_DIR / "ap2_logs"
 ACTIVE_INTENT_MANDATE_PATH = MANDATES_DIR / "active_intent_mandate.json"
 AP2_SIMULATION_LOG_PATH = LOGS_DIR / "ap2_simulation_log.jsonl"
+AP2_OPERATIONS_LOG_PATH = LOGS_DIR / "ap2_operations.json"
 AGENT_ID = "btc_binance_signal_agent"
 DEFAULT_SIM_SECRET = "local-dev-ap2-simulation-secret"
 
@@ -31,6 +32,8 @@ def ensure_storage() -> None:
             ACTIVE_INTENT_MANDATE_PATH.write_text("{}\n", encoding="utf-8")
         if not AP2_SIMULATION_LOG_PATH.exists():
             AP2_SIMULATION_LOG_PATH.touch()
+        if not AP2_OPERATIONS_LOG_PATH.exists() or not AP2_OPERATIONS_LOG_PATH.read_text(encoding="utf-8").strip():
+            AP2_OPERATIONS_LOG_PATH.write_text('{"operations": []}\n', encoding="utf-8")
     except OSError as exc:
         ap2_warning(f"Could not initialize AP2 storage: {exc}")
 
@@ -143,6 +146,30 @@ def append_jsonl(path: Path, line_payload: dict[str, Any]) -> bool:
         return False
 
 
+def append_operation_json(path: Path, operation: dict[str, Any]) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        current_payload: dict[str, Any] = {"operations": []}
+        if path.exists():
+            raw_data = path.read_text(encoding="utf-8").strip()
+            if raw_data:
+                current_data = json.loads(raw_data)
+                if isinstance(current_data, dict) and isinstance(current_data.get("operations"), list):
+                    current_payload = current_data
+                elif isinstance(current_data, list):
+                    current_payload = {"operations": current_data}
+
+        operations = current_payload["operations"]
+        operations.append(operation)
+        current_payload["operationCount"] = len(operations)
+        current_payload["updatedAt"] = utc_now_iso()
+        path.write_text(json.dumps(current_payload, indent=2, ensure_ascii=True), encoding="utf-8")
+        return True
+    except (OSError, json.JSONDecodeError) as exc:
+        ap2_warning(f"Could not update {path.name}: {exc}")
+        return False
+
+
 def load_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
@@ -181,6 +208,7 @@ def append_audit_event(
         "signature": signed_record.get("signature", ""),
     }
     append_jsonl(AP2_SIMULATION_LOG_PATH, entry)
+    append_operation_json(AP2_OPERATIONS_LOG_PATH, entry)
 
 
 def create_audit_record(payload: dict[str, Any]) -> dict[str, Any]:

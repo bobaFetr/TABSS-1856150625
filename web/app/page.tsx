@@ -60,6 +60,12 @@ type AuditEvent = {
   payloadHash?: string;
 };
 
+type Ap2Payload = {
+  ok?: boolean;
+  operations?: AuditEvent[];
+  auditEvents?: AuditEvent[];
+};
+
 type AutoStatus = {
   running: boolean;
   startedAtUtc: string;
@@ -177,7 +183,8 @@ export default function Home() {
       }
 
       if (ap2Response.ok && ap2Payload.ok) {
-        setAuditEvents(ap2Payload.auditEvents ?? []);
+        const ap2Data = ap2Payload as Ap2Payload;
+        setAuditEvents(ap2Data.operations ?? ap2Data.auditEvents ?? []);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Dashboard refresh failed.");
@@ -382,6 +389,7 @@ export default function Home() {
                   <div>
                     <strong>{event.eventType ?? "Audit event"}</strong>
                     <span>{event.humanReadableReason ?? event.status ?? "Recorded"}</span>
+                    <span>{formatTime(event.createdAt)}</span>
                   </div>
                   <small>{event.finalAction ?? "HOLD"}</small>
                 </div>

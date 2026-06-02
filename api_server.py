@@ -30,6 +30,11 @@ def read_json_file(path: Path, fallback: Any) -> Any:
 
 
 def read_audit_log(limit: int) -> list[dict[str, Any]]:
+    operations_payload = read_json_file(ap2_sim.AP2_OPERATIONS_LOG_PATH, {})
+    operations = operations_payload.get("operations") if isinstance(operations_payload, dict) else None
+    if isinstance(operations, list):
+        return [event for event in operations[-limit:] if isinstance(event, dict)]
+
     path = ap2_sim.AP2_SIMULATION_LOG_PATH
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -426,11 +431,13 @@ class AgentApiHandler(BaseHTTPRequestHandler):
                 return
             if parsed_url.path == "/ap2":
                 limit = int(query.get("limit", ["20"])[0])
+                audit_events = read_audit_log(max(1, min(limit, 100)))
                 self.send_json(
                     {
                         "ok": True,
                         "activeIntentMandate": read_json_file(ap2_sim.ACTIVE_INTENT_MANDATE_PATH, {}),
-                        "auditEvents": read_audit_log(max(1, min(limit, 100))),
+                        "operations": audit_events,
+                        "auditEvents": audit_events,
                     }
                 )
                 return
