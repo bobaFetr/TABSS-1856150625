@@ -62,6 +62,12 @@ type AuditEvent = {
 
 type Ap2Payload = {
   ok?: boolean;
+  protocol?: {
+    implemented?: boolean;
+    mode?: string;
+    notice?: string;
+  };
+  usingDefaultSimulationSecret?: boolean;
   operations?: AuditEvent[];
   auditEvents?: AuditEvent[];
 };
@@ -125,6 +131,8 @@ export default function Home() {
   const [state, setState] = useState<AgentState | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
   const [auto, setAuto] = useState<AutoStatus | null>(null);
+  const [ap2Protocol, setAp2Protocol] = useState<Ap2Payload["protocol"] | null>(null);
+  const [usingDefaultAp2Secret, setUsingDefaultAp2Secret] = useState(false);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [runningSignal, setRunningSignal] = useState(false);
@@ -184,6 +192,8 @@ export default function Home() {
 
       if (ap2Response.ok && ap2Payload.ok) {
         const ap2Data = ap2Payload as Ap2Payload;
+        setAp2Protocol(ap2Data.protocol ?? null);
+        setUsingDefaultAp2Secret(Boolean(ap2Data.usingDefaultSimulationSecret));
         setAuditEvents(ap2Data.operations ?? ap2Data.auditEvents ?? []);
       }
     } catch (caught) {
@@ -379,7 +389,11 @@ export default function Home() {
         <article className="panel auditPanel">
           <div className="panelHead">
             <ShieldCheck size={17} />
-            <h2>AP2 Audit</h2>
+            <h2>AP2 Simulation Audit</h2>
+          </div>
+          <div className="auditNotice">
+            <span>{ap2Protocol?.notice ?? "AP2-inspired local simulation only. Real payment rails are disabled."}</span>
+            {usingDefaultAp2Secret ? <small>Default local signing secret</small> : null}
           </div>
           <div className="auditList">
             {auditEvents.length ? (

@@ -435,6 +435,8 @@ class AgentApiHandler(BaseHTTPRequestHandler):
                 self.send_json(
                     {
                         "ok": True,
+                        "protocol": ap2_sim.PROTOCOL_ALIGNMENT,
+                        "usingDefaultSimulationSecret": ap2_sim.using_default_sim_secret(),
                         "activeIntentMandate": read_json_file(ap2_sim.ACTIVE_INTENT_MANDATE_PATH, {}),
                         "operations": audit_events,
                         "auditEvents": audit_events,

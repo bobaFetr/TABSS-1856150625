@@ -992,12 +992,7 @@ def execute_ap2_buy(
     cash_before = state.cash_balance
     btc_before = state.btc_balance
     spent = state.cash_balance
-    state.btc_balance = spent / result.price
-    state.cash_balance = 0.0
-    state.entry_cash_value = spent
-    state.entry_price = result.price
-    state.last_buy_monotonic = time.monotonic()
-    state.trade_count += 1
+    btc_after = spent / result.price
 
     payment_reason = (
         "Simulated BUY executed because the Cart Mandate matched the active Intent Mandate "
@@ -1009,14 +1004,21 @@ def execute_ap2_buy(
         action="BUY",
         symbol=result.symbol,
         execution_price=result.price,
-        quantity=state.btc_balance,
+        quantity=btc_after,
         notional_usd=spent,
         cash_before=cash_before,
-        cash_after=state.cash_balance,
+        cash_after=0.0,
         btc_before=btc_before,
-        btc_after=state.btc_balance,
+        btc_after=btc_after,
         reason=payment_reason,
     )
+
+    state.btc_balance = btc_after
+    state.cash_balance = 0.0
+    state.entry_cash_value = spent
+    state.entry_price = result.price
+    state.last_buy_monotonic = time.monotonic()
+    state.trade_count += 1
 
     messages.append(
         f"AUTO BUY | Spent ${spent:.2f} | Bought {state.btc_balance:.8f} BTC at ${result.price:.2f} "
@@ -1059,14 +1061,6 @@ def execute_ap2_sell(
     received = state.btc_balance * result.price
     pnl = received - state.entry_cash_value
     pnl_pct = (pnl / state.entry_cash_value * 100) if state.entry_cash_value else 0.0
-    state.realized_pnl += pnl
-    state.cash_balance = received
-    state.btc_balance = 0.0
-    state.entry_cash_value = 0.0
-    state.entry_price = None
-    state.last_buy_monotonic = None
-    state.next_buy_monotonic = time.monotonic() + config.buy_cooldown_seconds
-    state.trade_count += 1
 
     payment_reason = (
         "Simulated SELL executed because the Cart Mandate matched the active Intent Mandate "
@@ -1081,11 +1075,20 @@ def execute_ap2_sell(
         quantity=btc_before,
         notional_usd=received,
         cash_before=cash_before,
-        cash_after=state.cash_balance,
+        cash_after=received,
         btc_before=btc_before,
-        btc_after=state.btc_balance,
+        btc_after=0.0,
         reason=payment_reason,
     )
+
+    state.realized_pnl += pnl
+    state.cash_balance = received
+    state.btc_balance = 0.0
+    state.entry_cash_value = 0.0
+    state.entry_price = None
+    state.last_buy_monotonic = None
+    state.next_buy_monotonic = time.monotonic() + config.buy_cooldown_seconds
+    state.trade_count += 1
 
     messages.append(
         f"AUTO SELL | Received ${received:.2f} | P/L {pnl:+.2f} ({pnl_pct:+.2f}%) at ${result.price:.2f} "

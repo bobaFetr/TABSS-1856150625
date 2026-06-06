@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import os
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -18,6 +19,31 @@ AP2_SIMULATION_LOG_PATH = LOGS_DIR / "ap2_simulation_log.jsonl"
 AP2_OPERATIONS_LOG_PATH = LOGS_DIR / "ap2_operations.json"
 AGENT_ID = "btc_binance_signal_agent"
 DEFAULT_SIM_SECRET = "local-dev-ap2-simulation-secret"
+SIMULATION_ONLY_NOTICE = (
+    "AP2-inspired local simulation only. This is not a compliant AP2 implementation "
+    "and does not move real money or integrate with payment rails."
+)
+PROTOCOL_ALIGNMENT = {
+    "implemented": False,
+    "mode": "AP2_INSPIRED_SIMULATION_ONLY",
+    "notice": SIMULATION_ONLY_NOTICE,
+    "localGuarantees": [
+        "Local JSON payload integrity hashes",
+        "Local HMAC signatures using AP2_SIM_SECRET",
+        "Deterministic simulation rule checks before simulated trades",
+        "Append-only local audit events",
+    ],
+    "missingForRealAp2": [
+        "AP2 Checkout Mandate schemas and vct version claims",
+        "SD-JWT or other Verifiable Digital Credential format",
+        "Trusted Surface user signing flow",
+        "Merchant-signed Checkout JWT binding",
+        "Credential Provider, Network, and Merchant Payment Processor verification",
+        "Checkout Receipt and Payment Receipt JWTs",
+        "Real payment instrument or payment rail integration",
+    ],
+}
+_STORAGE_LOCK = threading.Lock()
 
 
 def ap2_warning(message: str) -> None:
@@ -56,6 +82,10 @@ def canonical_json(payload: dict[str, Any]) -> str:
 
 def get_sim_secret() -> str:
     return os.getenv("AP2_SIM_SECRET", DEFAULT_SIM_SECRET)
+
+
+def using_default_sim_secret() -> bool:
+    return get_sim_secret() == DEFAULT_SIM_SECRET
 
 
 def compute_payload_hash(payload: dict[str, Any]) -> str:
@@ -128,7 +158,11 @@ def build_mandate_id(prefix: str) -> str:
 def save_json(path: Path, payload: dict[str, Any]) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        raw_payload = json.dumps(payload, indent=2, ensure_ascii=True) + "\n"
+        tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        with _STORAGE_LOCK:
+            tmp_path.write_text(raw_payload, encoding="utf-8")
+            os.replace(tmp_path, path)
         return True
     except OSError as exc:
         ap2_warning(f"Could not save {path.name}: {exc}")
@@ -138,8 +172,9 @@ def save_json(path: Path, payload: dict[str, Any]) -> bool:
 def append_jsonl(path: Path, line_payload: dict[str, Any]) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(line_payload, ensure_ascii=True) + "\n")
+        with _STORAGE_LOCK:
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(line_payload, ensure_ascii=True) + "\n")
         return True
     except OSError as exc:
         ap2_warning(f"Could not append {path.name}: {exc}")
@@ -149,21 +184,25 @@ def append_jsonl(path: Path, line_payload: dict[str, Any]) -> bool:
 def append_operation_json(path: Path, operation: dict[str, Any]) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        current_payload: dict[str, Any] = {"operations": []}
-        if path.exists():
-            raw_data = path.read_text(encoding="utf-8").strip()
-            if raw_data:
-                current_data = json.loads(raw_data)
-                if isinstance(current_data, dict) and isinstance(current_data.get("operations"), list):
-                    current_payload = current_data
-                elif isinstance(current_data, list):
-                    current_payload = {"operations": current_data}
+        with _STORAGE_LOCK:
+            current_payload: dict[str, Any] = {"operations": []}
+            if path.exists():
+                raw_data = path.read_text(encoding="utf-8").strip()
+                if raw_data:
+                    current_data = json.loads(raw_data)
+                    if isinstance(current_data, dict) and isinstance(current_data.get("operations"), list):
+                        current_payload = current_data
+                    elif isinstance(current_data, list):
+                        current_payload = {"operations": current_data}
 
-        operations = current_payload["operations"]
-        operations.append(operation)
-        current_payload["operationCount"] = len(operations)
-        current_payload["updatedAt"] = utc_now_iso()
-        path.write_text(json.dumps(current_payload, indent=2, ensure_ascii=True), encoding="utf-8")
+            operations = current_payload["operations"]
+            operations.append(operation)
+            current_payload["operationCount"] = len(operations)
+            current_payload["updatedAt"] = utc_now_iso()
+            raw_payload = json.dumps(current_payload, indent=2, ensure_ascii=True) + "\n"
+            tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+            tmp_path.write_text(raw_payload, encoding="utf-8")
+            os.replace(tmp_path, path)
         return True
     except (OSError, json.JSONDecodeError) as exc:
         ap2_warning(f"Could not update {path.name}: {exc}")
@@ -343,6 +382,80 @@ def create_cart_mandate(
     return signed_record
 
 
+def values_match(left: float, right: float, *, precision: int) -> bool:
+    return round(float(left), precision) == round(float(right), precision)
+
+
+def validate_payment_mandate(
+    *,
+    payment_record: dict[str, Any],
+    intent_record: dict[str, Any],
+    cart_record: dict[str, Any],
+    expected_symbol: str,
+    expected_action: str,
+) -> tuple[bool, str]:
+    valid, reason = verify_signed_record(payment_record)
+    if not valid:
+        return False, reason
+
+    valid, reason = verify_signed_record(intent_record)
+    if not valid:
+        return False, f"Parent Intent Mandate is invalid: {reason}"
+
+    valid, reason = verify_signed_record(cart_record)
+    if not valid:
+        return False, f"Parent Cart Mandate is invalid: {reason}"
+
+    payload = payment_record["payload"]
+    intent_payload = intent_record["payload"]
+    cart_payload = cart_record["payload"]
+    action = str(payload.get("executedAction", "")).upper()
+
+    if payload.get("mandateType") != "PaymentMandate":
+        return False, "Proposed payment record is not a Payment Mandate."
+    if payload.get("mode") != "SIMULATION":
+        return False, "Payment Mandate is not in simulation mode."
+    if payload.get("status") != "SIMULATED_EXECUTED":
+        return False, "Payment Mandate status is not SIMULATED_EXECUTED."
+    if payload.get("realMoneyMoved") is not False:
+        return False, "Payment Mandate must keep real money movement disabled."
+    if payload.get("symbol") != expected_symbol:
+        return False, "Payment Mandate symbol does not match."
+    if action != expected_action:
+        return False, "Payment Mandate action does not match the simulated execution."
+    if payload.get("parentIntentMandateId") != intent_payload.get("mandateId"):
+        return False, "Payment Mandate does not reference the parent Intent Mandate."
+    if payload.get("parentCartMandateId") != cart_payload.get("mandateId"):
+        return False, "Payment Mandate does not reference the parent Cart Mandate."
+    if cart_payload.get("parentIntentMandateId") != intent_payload.get("mandateId"):
+        return False, "Parent Cart Mandate does not reference the parent Intent Mandate."
+    if cart_payload.get("symbol") != expected_symbol:
+        return False, "Parent Cart Mandate symbol does not match."
+    if str(cart_payload.get("proposedAction", "")).upper() != action:
+        return False, "Parent Cart Mandate action does not match the payment action."
+
+    try:
+        execution_price = float(payload.get("executionPrice", 0.0))
+        payment_quantity = float(payload.get("quantity", 0.0))
+        payment_notional = float(payload.get("notionalUsd", 0.0))
+        cart_price = float(cart_payload.get("price", 0.0))
+        cart_quantity = float(cart_payload.get("quantity", 0.0))
+        cart_notional = float(cart_payload.get("notionalUsd", 0.0))
+    except (TypeError, ValueError):
+        return False, "Payment Mandate or Cart Mandate numeric values are invalid."
+
+    if execution_price <= 0 or payment_quantity <= 0 or payment_notional <= 0:
+        return False, "Payment Mandate price, quantity, and notional must be positive."
+    if not values_match(execution_price, cart_price, precision=2):
+        return False, "Payment Mandate execution price does not match the Cart Mandate."
+    if not values_match(payment_quantity, cart_quantity, precision=8):
+        return False, "Payment Mandate quantity does not match the Cart Mandate."
+    if not values_match(payment_notional, cart_notional, precision=2):
+        return False, "Payment Mandate notional does not match the Cart Mandate."
+
+    return True, "OK"
+
+
 def create_payment_mandate(
     *,
     intent_record: dict[str, Any],
@@ -382,6 +495,16 @@ def create_payment_mandate(
         "createdAt": utc_now_iso(),
     }
     signed_record = create_signed_record(payload)
+    valid, validation_reason = validate_payment_mandate(
+        payment_record=signed_record,
+        intent_record=intent_record,
+        cart_record=cart_record,
+        expected_symbol=symbol,
+        expected_action=action,
+    )
+    if not valid:
+        raise ValueError(validation_reason)
+
     append_audit_event(
         event_type="PAYMENT_MANDATE_CREATED",
         final_action=action,

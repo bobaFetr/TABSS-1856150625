@@ -370,6 +370,26 @@ h2 {
   gap: 9px;
 }
 
+.auditNotice {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #f1d7a7;
+  border-radius: 7px;
+  background: #fff8eb;
+  color: #6d4209;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.auditNotice small {
+  color: #9a5b0e;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
 .feedItem {
   padding: 12px 13px;
   border-left: 3px solid var(--blue);

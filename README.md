@@ -147,7 +147,7 @@ Press **Apply** on the dashboard to restart the simulation with new values.
 | `GET /auto/stop` | Stops the auto-simulation runner |
 | `GET /auto/status` | Returns current simulation state and last signal |
 | `GET /auto/configure` | Reconfigures and restarts the runner with query params |
-| `GET /ap2` | Returns the active intent mandate and audit log entries |
+| `GET /ap2` | Returns the active simulated mandate, audit log entries, and simulation-only protocol metadata |
 
 **`/auto/configure` query parameters:**
 
@@ -197,7 +197,7 @@ The rule-based scoring system counts bullish and bearish signals from the above 
 | `BUY_THRESHOLD` | `4` | Min bullish score gap to suggest BUY |
 | `SELL_THRESHOLD` | `4` | Min bearish score gap to suggest SELL |
 | `REQUEST_TIMEOUT` | `10` | HTTP request timeout in seconds |
-| `AP2_SIM_SECRET` | _(internal fallback)_ | HMAC secret for AP2 mandate signing |
+| `AP2_SIM_SECRET` | _(internal fallback)_ | HMAC secret for local AP2-inspired simulation signing; set this for any non-throwaway demo |
 | `AUTO_SIM_ENABLED` | `true` | Auto-start the simulation runner on API server start |
 | `AUTO_SIM_POLL_SECONDS` | `5` | Poll interval for auto simulation |
 | `AUTO_SIM_SIGNAL_REFRESH_SECONDS` | same as poll | Signal refresh interval for auto simulation |
@@ -240,6 +240,8 @@ AUTO SELL | Received $500.05 | P/L +0.05 (+0.01%) at $77918.85 after a $8.05 ris
 
 This project simulates AP2-style payment mandate concepts for education and auditability. It does **not** implement real AP2 payment rails.
 
+The `/ap2` API response includes a `protocol.implemented: false` flag and a `mode` of `AP2_INSPIRED_SIMULATION_ONLY` so clients can avoid mistaking this audit trail for AP2 compliance.
+
 ### Mandate types
 
 | Mandate | Purpose |
@@ -251,7 +253,10 @@ This project simulates AP2-style payment mandate concepts for education and audi
 All mandates are:
 - SHA-256 hashed for integrity
 - HMAC-signed using `AP2_SIM_SECRET`
+- Validated against the active simulated intent/cart before a simulated payment execution is logged
 - Written to `ap2_logs/ap2_operations.json` and `ap2_logs/ap2_simulation_log.jsonl`
+
+For real AP2 compliance, this project would still need AP2 mandate schemas and `vct` versioning, SD-JWT or another supported Verifiable Digital Credential format, Trusted Surface user signing, merchant-signed Checkout JWT binding, role-based verification, and Checkout/Payment Receipt JWTs.
 
 ### AP2 files
 
