@@ -23,6 +23,30 @@ async function readAgent(path: string) {
   return NextResponse.json(payload);
 }
 
+async function writeAgent(path: string, body: unknown) {
+  const response = await fetch(`${agentApiUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body),
+    cache: "no-store"
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: payload?.error ?? `Agent API returned HTTP ${response.status}`
+      },
+      { status: response.status }
+    );
+  }
+
+  return NextResponse.json(payload);
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action") ?? "state";
@@ -52,9 +76,24 @@ export async function GET(request: Request) {
     return readAgent("/ap2?limit=12");
   }
 
+  if (action === "checkout-demo") {
+    return readAgent("/ap2/checkout/demo");
+  }
+
   if (action === "health") {
     return readAgent("/health");
   }
 
   return readAgent("/state");
+}
+
+export async function POST(request: Request) {
+  const url = new URL(request.url);
+  const action = url.searchParams.get("action") ?? "";
+
+  if (action === "checkout-run") {
+    return writeAgent("/ap2/checkout/run", await request.json());
+  }
+
+  return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 }

@@ -29,6 +29,49 @@ def read_json_file(path: Path, fallback: Any) -> Any:
         return fallback
 
 
+def normalize_checkout_items(raw_items: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_items, list):
+        raise ValueError("items must be a list.")
+
+    items: list[dict[str, Any]] = []
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            raise ValueError("Each item must be an object.")
+        items.append(
+            {
+                "name": str(raw_item.get("name", "")).strip(),
+                "category": str(raw_item.get("category", "")).strip(),
+                "quantity": int(raw_item.get("quantity", 1)),
+                "unitPrice": float(raw_item.get("unitPrice", 0.0)),
+            }
+        )
+    return items
+
+
+def normalize_categories(raw_categories: Any) -> list[str]:
+    if isinstance(raw_categories, str):
+        return [category.strip() for category in raw_categories.split(",") if category.strip()]
+    if isinstance(raw_categories, list):
+        return [str(category).strip() for category in raw_categories if str(category).strip()]
+    raise ValueError("allowedCategories must be a list or comma-separated string.")
+
+
+def run_checkout_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return ap2_sim.run_checkout_scenario(
+        user_id=str(payload.get("userId", "web_user")).strip() or "web_user",
+        merchant_id=str(payload.get("merchantId", "web_merchant")).strip() or "web_merchant",
+        agent_id=str(payload.get("agentId", "web_agent")).strip() or "web_agent",
+        maximum_spending_amount=float(payload.get("maximumSpendingAmount", 100.0)),
+        currency=str(payload.get("currency", "USD")).strip().upper() or "USD",
+        allowed_categories=normalize_categories(payload.get("allowedCategories", ["books", "software"])),
+        items=normalize_checkout_items(payload.get("items", [])),
+        human_approval_required=bool(payload.get("humanApprovalRequired", False)),
+        approve_cart=bool(payload.get("approveCart", False)),
+        human_present=bool(payload.get("humanPresent", False)),
+        payment_method=str(payload.get("paymentMethod", "simulated_card")).strip() or "simulated_card",
+    )
+
+
 def read_audit_log(limit: int) -> list[dict[str, Any]]:
     operations_payload = read_json_file(ap2_sim.AP2_OPERATIONS_LOG_PATH, {})
     operations = operations_payload.get("operations") if isinstance(operations_payload, dict) else None
@@ -388,7 +431,7 @@ class AgentApiHandler(BaseHTTPRequestHandler):
 
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
@@ -443,8 +486,31 @@ class AgentApiHandler(BaseHTTPRequestHandler):
                     }
                 )
                 return
+            if parsed_url.path == "/ap2/checkout/demo":
+                self.send_json({"ok": True, "checkout": ap2_sim.run_default_payment_chain_simulation()})
+                return
 
             self.send_json({"ok": False, "error": "Not found"}, status=404)
+        except Exception as exc:  # noqa: BLE001
+            self.send_json({"ok": False, "error": str(exc)}, status=500)
+
+    def do_POST(self) -> None:
+        parsed_url = urlparse(self.path)
+
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length).decode("utf-8") if content_length else "{}"
+            payload = json.loads(raw_body)
+            if not isinstance(payload, dict):
+                raise ValueError("Request body must be a JSON object.")
+
+            if parsed_url.path == "/ap2/checkout/run":
+                self.send_json({"ok": True, "checkout": run_checkout_payload(payload)})
+                return
+
+            self.send_json({"ok": False, "error": "Not found"}, status=404)
+        except (json.JSONDecodeError, ValueError) as exc:
+            self.send_json({"ok": False, "error": str(exc)}, status=400)
         except Exception as exc:  # noqa: BLE001
             self.send_json({"ok": False, "error": str(exc)}, status=500)
 

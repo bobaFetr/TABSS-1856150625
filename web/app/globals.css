@@ -312,6 +312,114 @@ h2 {
   align-items: start;
 }
 
+.checkoutPanel {
+  margin-bottom: 14px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.checkoutForm {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.checkoutForm label {
+  display: grid;
+  gap: 5px;
+}
+
+.checkoutForm label span {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.checkoutForm input,
+.checkoutForm textarea {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.checkoutForm textarea {
+  min-height: 74px;
+  padding: 9px 10px;
+  resize: vertical;
+  line-height: 1.35;
+}
+
+.checkoutForm input:focus,
+.checkoutForm textarea:focus {
+  border-color: var(--blue);
+  outline: 2px solid rgba(37, 87, 214, 0.16);
+}
+
+.wideField {
+  grid-column: span 3;
+}
+
+.checkField {
+  display: flex !important;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px !important;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-soft);
+}
+
+.checkField input {
+  width: 16px;
+  min-height: 16px;
+}
+
+.checkoutActions {
+  display: flex;
+  gap: 9px;
+  align-items: end;
+  justify-content: flex-end;
+  grid-column: span 3;
+}
+
+.checkoutResult {
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+
+.checkoutResult.valid {
+  border-top-color: rgba(15, 138, 75, 0.32);
+}
+
+.checkoutResult.invalid {
+  border-top-color: rgba(192, 53, 43, 0.32);
+}
+
+.checkoutSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.checkoutMessages {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 9px;
+}
+
 .panel {
   min-height: 350px;
   padding: 17px;
@@ -475,6 +583,17 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .checkoutForm,
+  .checkoutSummary,
+  .checkoutMessages {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .wideField,
+  .checkoutActions {
+    grid-column: 1 / -1;
+  }
+
   .panel,
   .feedPanel {
     min-height: auto;
@@ -504,7 +623,10 @@ h2 {
 
   .priceMeta,
   .portfolioGrid,
-  .settingsForm {
+  .settingsForm,
+  .checkoutForm,
+  .checkoutSummary,
+  .checkoutMessages {
     grid-template-columns: 1fr 1fr;
   }
 

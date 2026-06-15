@@ -1,7 +1,7 @@
 {
   "payload": {
     "mandateType": "IntentMandate",
-    "mandateId": "intent_20260602T182314_97a85cb0",
+    "mandateId": "intent_20260615T175005_56efed18",
     "agentId": "btc_binance_signal_agent",
     "symbol": "BTCUSDT",
     "mode": "SIMULATION",
@@ -23,10 +23,10 @@
     "realMoneyMoved": false,
     "allowWithdrawals": false,
     "allowLeverage": false,
-    "createdAt": "2026-06-02T18:23:14+00:00",
-    "expiresAt": "2026-06-03T18:23:14+00:00",
+    "createdAt": "2026-06-15T17:50:05+00:00",
+    "expiresAt": "2026-06-16T17:50:05+00:00",
     "userConfirmation": "User authorized simulated BTCUSDT trading only."
   },
-  "payloadHash": "382c97c41e90276d537ac5d733dcf5ce2a5e32fdcdc6a0a04e2d6f19396c5674",
-  "signature": "eaff2cbda86ba4fc33f7200344a4b734f97f3d3a906e437b64864f0f14c770c3"
+  "payloadHash": "56cf72935b54e53873148522bc407777641b99a56421a3f4b15fb05260df12c5",
+  "signature": "9815b143e298916c3f90d0fb927167b74a23c158ca5b3244e4b81788db5e7cc0"
 }

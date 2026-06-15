@@ -32,7 +32,8 @@ python-ai-agent-buy-sell/
 
 ## Requirements
 
-- Python 3.11 or later (no third-party packages required — uses only the standard library)
+- Python 3.11 or later
+- `cryptography` for the ECDSA mandate-signing simulation
 - An [OpenAI API key](https://platform.openai.com/account/api-keys)
 - Internet access to reach `api.binance.com`
 
@@ -148,6 +149,22 @@ Press **Apply** on the dashboard to restart the simulation with new values.
 | `GET /auto/status` | Returns current simulation state and last signal |
 | `GET /auto/configure` | Reconfigures and restarts the runner with query params |
 | `GET /ap2` | Returns the active simulated mandate, audit log entries, and simulation-only protocol metadata |
+
+### ECDSA shopping mandate demo
+
+`ap2_sim.py` also includes a generic user/merchant/agent checkout-chain simulation:
+
+```bash
+python ap2_sim.py --shopping-demo
+```
+
+For a custom interactive scenario:
+
+```bash
+python ap2_sim.py --interactive-checkout
+```
+
+The demo registers a user, merchant, and agent, generates ECDSA P-256 key pairs, creates signed Intent/Cart/Payment mandates, optionally adds a user approval signature, validates the chain, and demonstrates rejection for over-budget and disallowed-category carts.
 
 **`/auto/configure` query parameters:**
 

@@ -6,6 +6,7 @@ import {
   BarChart3,
   BrainCircuit,
   CircleDollarSign,
+  CreditCard,
   FileCheck2,
   Gauge,
   Pause,
@@ -72,6 +73,26 @@ type Ap2Payload = {
   auditEvents?: AuditEvent[];
 };
 
+type CheckoutResult = {
+  valid?: boolean;
+  messages?: string[];
+  registeredParticipants?: string[];
+  intentMandateId?: string;
+  cartMandateId?: string;
+  paymentMandateId?: string;
+  cartTotal?: number;
+  currency?: string;
+  humanApprovalRequired?: boolean;
+  cartApproved?: boolean;
+  humanPresent?: boolean;
+  happyPathValid?: boolean;
+  humanNotPresentFlowValid?: boolean;
+  overBudgetRejected?: boolean;
+  badCategoryRejected?: boolean;
+  overBudgetMessages?: string[];
+  badCategoryMessages?: string[];
+};
+
 type AutoStatus = {
   running: boolean;
   startedAtUtc: string;
@@ -127,6 +148,22 @@ function toneForSignal(signal: string | undefined) {
   return "hold";
 }
 
+function parseCheckoutItems(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name = "", category = "", quantity = "1", unitPrice = "0"] = line.split(",").map((part) => part.trim());
+      return {
+        name,
+        category,
+        quantity: Number(quantity),
+        unitPrice: Number(unitPrice)
+      };
+    });
+}
+
 export default function Home() {
   const [state, setState] = useState<AgentState | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
@@ -145,6 +182,21 @@ export default function Home() {
     riseToSellUsd: "1"
   });
   const [settingsTouched, setSettingsTouched] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(null);
+  const [checkoutForm, setCheckoutForm] = useState({
+    userId: "web_user",
+    merchantId: "web_merchant",
+    agentId: "web_agent",
+    maximumSpendingAmount: "100",
+    currency: "USD",
+    allowedCategories: "books, software",
+    items: "Python ebook, books, 1, 24.99\nEditor plugin, software, 1, 19.99",
+    paymentMethod: "simulated_card",
+    humanApprovalRequired: true,
+    approveCart: true,
+    humanPresent: true
+  });
 
   const activeSignal = auto?.signal?.signal ?? signal?.signal ?? state?.last_signal ?? "HOLD";
   const tone = toneForSignal(activeSignal);
@@ -153,6 +205,7 @@ export default function Home() {
   const btcPrice = auto?.signal?.price ?? signal?.price ?? state?.last_snapshot?.live_price;
   const btcPosition = (auto?.simulation?.btcBalance ?? 0) > 0 ? "LONG" : "FLAT";
   const tradeMessages = auto?.messages ?? [];
+  const checkoutChainValid = checkoutResult ? Boolean(checkoutResult.valid ?? checkoutResult.happyPathValid) : false;
 
   const scoreSpread = useMemo(() => {
     const bullish = snapshot?.bullish_score ?? 0;
@@ -231,6 +284,65 @@ export default function Home() {
     const params = new URLSearchParams(settings);
     await loadDashboard("configure-auto", params);
     setSettingsTouched(false);
+  }
+
+  function updateCheckoutField(name: keyof typeof checkoutForm, value: string | boolean) {
+    setCheckoutForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function runCheckoutDemo() {
+    setCheckoutLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/agent?action=checkout-demo", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? "Checkout demo failed.");
+      }
+      setCheckoutResult(payload.checkout);
+      await loadDashboard();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Checkout demo failed.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
+
+  async function runCheckout(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCheckoutLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/agent?action=checkout-run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userId: checkoutForm.userId,
+          merchantId: checkoutForm.merchantId,
+          agentId: checkoutForm.agentId,
+          maximumSpendingAmount: Number(checkoutForm.maximumSpendingAmount),
+          currency: checkoutForm.currency,
+          allowedCategories: checkoutForm.allowedCategories,
+          items: parseCheckoutItems(checkoutForm.items),
+          paymentMethod: checkoutForm.paymentMethod,
+          humanApprovalRequired: checkoutForm.humanApprovalRequired,
+          approveCart: checkoutForm.approveCart,
+          humanPresent: checkoutForm.humanPresent
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error ?? "Checkout validation failed.");
+      }
+      setCheckoutResult(payload.checkout);
+      await loadDashboard();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Checkout validation failed.");
+    } finally {
+      setCheckoutLoading(false);
+    }
   }
 
   return (
@@ -346,6 +458,109 @@ export default function Home() {
             </button>
           </form>
         </article>
+      </section>
+
+      <section className="checkoutPanel">
+        <div className="panelHead">
+          <CreditCard size={17} />
+          <h2>ECDSA Checkout</h2>
+        </div>
+        <form className="checkoutForm" onSubmit={runCheckout}>
+          <label>
+            <span>User</span>
+            <input value={checkoutForm.userId} onChange={(event) => updateCheckoutField("userId", event.target.value)} />
+          </label>
+          <label>
+            <span>Merchant</span>
+            <input value={checkoutForm.merchantId} onChange={(event) => updateCheckoutField("merchantId", event.target.value)} />
+          </label>
+          <label>
+            <span>Agent</span>
+            <input value={checkoutForm.agentId} onChange={(event) => updateCheckoutField("agentId", event.target.value)} />
+          </label>
+          <label>
+            <span>Budget</span>
+            <input
+              min="0.01"
+              step="0.01"
+              type="number"
+              value={checkoutForm.maximumSpendingAmount}
+              onChange={(event) => updateCheckoutField("maximumSpendingAmount", event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Currency</span>
+            <input value={checkoutForm.currency} onChange={(event) => updateCheckoutField("currency", event.target.value.toUpperCase())} />
+          </label>
+          <label>
+            <span>Payment</span>
+            <input value={checkoutForm.paymentMethod} onChange={(event) => updateCheckoutField("paymentMethod", event.target.value)} />
+          </label>
+          <label className="wideField">
+            <span>Allowed categories</span>
+            <input value={checkoutForm.allowedCategories} onChange={(event) => updateCheckoutField("allowedCategories", event.target.value)} />
+          </label>
+          <label className="wideField">
+            <span>Cart items</span>
+            <textarea value={checkoutForm.items} onChange={(event) => updateCheckoutField("items", event.target.value)} />
+          </label>
+          <label className="checkField">
+            <input
+              type="checkbox"
+              checked={checkoutForm.humanApprovalRequired}
+              onChange={(event) => updateCheckoutField("humanApprovalRequired", event.target.checked)}
+            />
+            <span>Approval required</span>
+          </label>
+          <label className="checkField">
+            <input
+              type="checkbox"
+              checked={checkoutForm.approveCart}
+              onChange={(event) => updateCheckoutField("approveCart", event.target.checked)}
+            />
+            <span>User approved</span>
+          </label>
+          <label className="checkField">
+            <input
+              type="checkbox"
+              checked={checkoutForm.humanPresent}
+              onChange={(event) => updateCheckoutField("humanPresent", event.target.checked)}
+            />
+            <span>Human present</span>
+          </label>
+          <div className="checkoutActions">
+            <button className="button primary" type="submit" disabled={checkoutLoading}>
+              <ShieldCheck size={16} />
+              Validate
+            </button>
+            <button className="button secondary" type="button" onClick={runCheckoutDemo} disabled={checkoutLoading}>
+              <RefreshCw size={16} className={checkoutLoading ? "spin" : ""} />
+              Demo
+            </button>
+          </div>
+        </form>
+        <div className={`checkoutResult ${checkoutResult ? (checkoutChainValid ? "valid" : "invalid") : ""}`}>
+          {checkoutResult ? (
+            <>
+              <div className="checkoutSummary">
+                <Stat label="Chain" value={checkoutChainValid ? "VALID" : "REJECTED"} tone={checkoutChainValid ? "good" : "bad"} />
+                <Stat label="Cart total" value={formatPrice(checkoutResult.cartTotal)} />
+                <Stat label="Approval" value={checkoutResult.cartApproved ? "SIGNED" : checkoutResult.humanApprovalRequired ? "MISSING" : "NOT REQUIRED"} />
+                <Stat label="Human" value={checkoutResult.humanPresent ? "PRESENT" : "NOT PRESENT"} />
+              </div>
+              <div className="checkoutMessages">
+                {(checkoutResult.messages ?? []).map((message) => (
+                  <FeedItem key={message} tone={message === "OK" ? "good" : "bad"} title="Validation" text={message} />
+                ))}
+                {checkoutResult.overBudgetRejected ? <FeedItem tone="good" title="Budget rejection" text={checkoutResult.overBudgetMessages?.join(" ") ?? "Rejected"} /> : null}
+                {checkoutResult.badCategoryRejected ? <FeedItem tone="good" title="Category rejection" text={checkoutResult.badCategoryMessages?.join(" ") ?? "Rejected"} /> : null}
+                {checkoutResult.humanNotPresentFlowValid ? <FeedItem tone="good" title="No-human flow" text="Validated without cart approval when approval was not required." /> : null}
+              </div>
+            </>
+          ) : (
+            <p className="empty">No checkout chain has been validated yet.</p>
+          )}
+        </div>
       </section>
 
       <section className="deskGrid">
