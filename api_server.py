@@ -20,6 +20,9 @@ DEFAULT_PORT = 8765
 API_VERSION = "2026-04-26-auto-runner-v2"
 AUTO_STATUS_PATH = BASE_DIR / "auto_sim_state.json"
 DASHBOARD_PATH = BASE_DIR / "dashboard.html"
+DASHBOARD_CSS_PATH = BASE_DIR / "dashboard.css"
+WEB_PUBLIC_DIR = BASE_DIR / "web" / "public"
+WEB_APP_DIR = BASE_DIR / "web" / "app"
 
 
 def read_json_file(path: Path, fallback: Any) -> Any:
@@ -447,6 +450,15 @@ class AgentApiHandler(BaseHTTPRequestHandler):
             if parsed_url.path in {"/", "/dashboard"}:
                 self.send_dashboard()
                 return
+            if parsed_url.path == "/dashboard.css":
+                self.send_file(DASHBOARD_CSS_PATH, "text/css; charset=utf-8")
+                return
+            if parsed_url.path == "/logo.png":
+                self.send_file(WEB_PUBLIC_DIR / "logo.png", "image/png")
+                return
+            if parsed_url.path == "/icon.png":
+                self.send_file(WEB_APP_DIR / "icon.png", "image/png")
+                return
             if parsed_url.path == "/health":
                 self.send_json({"ok": True, "service": "btc-agent-api", "apiVersion": API_VERSION})
                 return
@@ -523,6 +535,19 @@ class AgentApiHandler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_file(self, path: Path, content_type: str) -> None:
+        try:
+            body = path.read_bytes()
+        except OSError:
+            self.send_json({"ok": False, "error": f"{path.name} is missing"}, status=404)
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)

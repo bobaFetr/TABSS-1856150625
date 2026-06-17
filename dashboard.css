@@ -1,0 +1,21 @@
+.brandLockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brandLogo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 8px 22px rgba(20, 25, 35, 0.14);
+}
+
+@media (max-width: 680px) {
+  .brandLockup {
+    align-items: center;
+  }
+}

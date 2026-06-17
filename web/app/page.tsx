@@ -348,9 +348,12 @@ export default function Home() {
   return (
     <main className="shell">
       <section className="commandBar">
-        <div>
-          <p className="eyebrow">BTCUSDT simulated execution desk</p>
-          <h1>Signal Agent</h1>
+        <div className="brandLockup">
+          <img className="brandLogo" src="/logo.png" alt="BTC Signal Agent logo" />
+          <div>
+            <p className="eyebrow">BTCUSDT simulated execution desk</p>
+            <h1>Signal Agent</h1>
+          </div>
         </div>
         <div className="actions">
           <button className="button secondary" onClick={() => loadDashboard(auto?.running ? "stop-auto" : "start-auto")} disabled={loading}>

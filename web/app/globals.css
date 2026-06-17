@@ -45,6 +45,22 @@ button {
   margin-bottom: 18px;
 }
 
+.brandLockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brandLogo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 8px 22px rgba(20, 25, 35, 0.14);
+}
+
 .eyebrow,
 .mutedLabel {
   display: block;
@@ -611,6 +627,10 @@ h2 {
   .priceHeader {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .brandLockup {
+    align-items: center;
   }
 
   .pricePanel {
