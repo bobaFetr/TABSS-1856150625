@@ -119,6 +119,11 @@ type AutoStatus = {
   messages: string[];
 };
 
+type PricePoint = {
+  price: number;
+  timestamp: string;
+};
+
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -171,6 +176,7 @@ export default function Home() {
   const [ap2Protocol, setAp2Protocol] = useState<Ap2Payload["protocol"] | null>(null);
   const [usingDefaultAp2Secret, setUsingDefaultAp2Secret] = useState(false);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [runningSignal, setRunningSignal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +218,34 @@ export default function Home() {
     const bearish = snapshot?.bearish_score ?? 0;
     return bullish - bearish;
   }, [snapshot]);
+
+  const chartStats = useMemo(() => {
+    if (!priceHistory.length) {
+      return {
+        min: btcPrice,
+        max: btcPrice,
+        change: 0
+      };
+    }
+
+    const prices = priceHistory.map((point) => point.price);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+      change: priceHistory[priceHistory.length - 1].price - priceHistory[0].price
+    };
+  }, [btcPrice, priceHistory]);
+
+  useEffect(() => {
+    if (typeof btcPrice !== "number") return;
+
+    const timestamp = auto?.lastTickUtc ?? signal?.timestamp_utc ?? new Date().toISOString();
+    setPriceHistory((current) => {
+      const lastPoint = current[current.length - 1];
+      if (lastPoint?.timestamp === timestamp && lastPoint.price === btcPrice) return current;
+      return [...current, { price: btcPrice, timestamp }].slice(-180);
+    });
+  }, [auto?.lastTickUtc, btcPrice, signal?.timestamp_utc]);
 
   async function loadDashboard(
     action: "auto" | "state" | "signal" | "start-auto" | "stop-auto" | "configure-auto" = "auto",
@@ -384,6 +418,7 @@ export default function Home() {
             <Meta label="Last tick" value={formatTime(auto?.lastTickUtc)} />
             <Meta label="Loop" value={auto?.running ? `${auto.pollSeconds}s` : "Paused"} />
           </div>
+          <LivePriceChart points={priceHistory} currentPrice={btcPrice} minPrice={chartStats.min} maxPrice={chartStats.max} change={chartStats.change} />
         </article>
 
         <article className="portfolioPanel">
@@ -670,6 +705,67 @@ function Indicator({
       {icon}
       <span>{label}</span>
       <strong className={tone ?? ""}>{value}</strong>
+    </div>
+  );
+}
+
+function LivePriceChart({
+  points,
+  currentPrice,
+  minPrice,
+  maxPrice,
+  change
+}: {
+  points: PricePoint[];
+  currentPrice: number | undefined;
+  minPrice: number | undefined;
+  maxPrice: number | undefined;
+  change: number;
+}) {
+  const width = 640;
+  const height = 170;
+  const padding = 12;
+  const chartPoints = points.length ? points : typeof currentPrice === "number" ? [{ price: currentPrice, timestamp: "" }] : [];
+  const prices = chartPoints.map((point) => point.price);
+  const low = typeof minPrice === "number" ? minPrice : Math.min(...prices);
+  const high = typeof maxPrice === "number" ? maxPrice : Math.max(...prices);
+  const range = Math.max(high - low, 1);
+
+  const linePath = chartPoints
+    .map((point, index) => {
+      const x = padding + (index / Math.max(chartPoints.length - 1, 1)) * (width - padding * 2);
+      const y = height - padding - ((point.price - low) / range) * (height - padding * 2);
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+
+  const areaPath = linePath ? `${linePath} L ${width - padding} ${height - padding} L ${padding} ${height - padding} Z` : "";
+  const lastPoint = chartPoints[chartPoints.length - 1];
+  const lastX = padding + ((chartPoints.length - 1) / Math.max(chartPoints.length - 1, 1)) * (width - padding * 2);
+  const lastY = lastPoint ? height - padding - ((lastPoint.price - low) / range) * (height - padding * 2) : height - padding;
+  const changeTone = change >= 0 ? "good" : "bad";
+
+  return (
+    <div className="liveChart">
+      <div className="chartHead">
+        <div>
+          <span className="mutedLabel">Live BTC chart</span>
+          <strong>{formatPrice(currentPrice)}</strong>
+        </div>
+        <span className={changeTone}>{change >= 0 ? "+" : ""}{formatPrice(change)}</span>
+      </div>
+      <svg className="priceChartSvg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Live BTC price chart">
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} />
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
+        <path className="chartArea" d={areaPath} />
+        <path className="chartLine" d={linePath} />
+        {lastPoint ? <circle className="chartDot" cx={lastX} cy={lastY} r="4.5" /> : null}
+      </svg>
+      <div className="chartMeta">
+        <span>Min {formatPrice(minPrice)}</span>
+        <span>{points.length} ticks</span>
+        <span>Max {formatPrice(maxPrice)}</span>
+      </div>
     </div>
   );
 }

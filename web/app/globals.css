@@ -238,6 +238,76 @@ h2 {
   font-size: 1.05rem;
 }
 
+.liveChart {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.chartHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chartHead strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.1rem;
+}
+
+.chartHead > span {
+  font-size: 0.88rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.priceChartSvg {
+  display: block;
+  width: 100%;
+  height: 170px;
+  overflow: visible;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0, var(--surface-soft) 100%);
+}
+
+.priceChartSvg line {
+  stroke: #d9e0ea;
+  stroke-width: 1;
+}
+
+.chartArea {
+  fill: rgba(37, 87, 214, 0.1);
+  stroke: none;
+}
+
+.chartLine {
+  fill: none;
+  stroke: var(--blue);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.chartDot {
+  fill: #fff;
+  stroke: var(--blue);
+  stroke-width: 3;
+}
+
+.chartMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 .portfolioPanel {
   padding: 18px;
 }
@@ -648,6 +718,12 @@ h2 {
   .checkoutSummary,
   .checkoutMessages {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .chartHead,
+  .chartMeta {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .indicator {
