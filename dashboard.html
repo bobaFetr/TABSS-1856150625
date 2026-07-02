@@ -49,8 +49,13 @@
     .auditRow small { padding:5px 7px; border-radius:999px; background:#e8f1ff; color:#174ea6; font-weight:900; }
     .good{color:var(--green)} .bad{color:var(--red)}
     .alert { display:none; margin-bottom:14px; padding:11px 13px; border:1px solid #f0b7b1; border-radius:7px; background:#fff1ef; color:var(--red); font-weight:800; }
+    .notice { display:grid; gap:5px; margin-bottom:14px; padding:11px 13px; border:1px solid #d7bf89; border-radius:7px; background:#fff8eb; color:#6d4209; font-size:.86rem; font-weight:800; line-height:1.35; }
+    .notice strong { color:#553206; }
+    .statusLine { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:14px; }
+    .statusBox { min-height:54px; padding:10px 12px; border:1px solid var(--line); border-radius:7px; background:var(--surface); }
+    .statusBox strong { display:block; margin-top:4px; }
     @media(max-width:1050px){.hero,.desk{grid-template-columns:1fr}.card{min-height:auto}}
-    @media(max-width:680px){main{width:min(100vw - 18px,620px);padding-top:14px}.bar,.actions,.priceHead{align-items:stretch;flex-direction:column}.meta{grid-template-columns:1fr 1fr}.big{font-size:2.5rem}}
+    @media(max-width:680px){main{width:min(100vw - 18px,620px);padding-top:14px}.bar,.actions,.priceHead{align-items:stretch;flex-direction:column}.meta,.statusLine{grid-template-columns:1fr 1fr}.big{font-size:2.5rem}}
   </style>
 </head>
 <body>
@@ -59,7 +64,16 @@
     <div class="brandLockup"><img class="brandLogo" src="/logo.png" alt="BTC Signal Agent logo"><div><div class="eyebrow">BTCUSDT simulated execution desk</div><h1>Signal Agent</h1></div></div>
     <div class="actions"><button id="toggle" class="secondary">Pause</button><button id="refresh" class="primary">Refresh</button></div>
   </section>
+  <section class="notice">
+    <strong>Simulation only.</strong>
+    <span>No real trades are placed, no real money moves, and Binance is used only for public market data.</span>
+  </section>
   <div id="alert" class="alert"></div>
+  <section class="statusLine">
+    <div class="statusBox"><span class="label">Python API</span><strong id="apiStatus">Checking</strong></div>
+    <div class="statusBox"><span class="label">Market/OpenAI</span><strong id="upstreamStatus">Waiting</strong></div>
+    <div class="statusBox"><span class="label">Mode</span><strong id="modeStatus">Simulation</strong></div>
+  </section>
   <section class="hero">
     <article id="priceCard" class="card price hold">
       <div class="priceHead"><div><span class="label">Live price</span><strong id="price" class="big">-</strong></div><span id="signal" class="pill hold">HOLD</span></div>
@@ -119,6 +133,9 @@ function renderAuto(auto){
   setText("lastTick", time(auto.lastTickUtc));
   setText("loop", auto.running ? `${auto.pollSeconds}s` : "Paused");
   setText("toggle", auto.running ? "Pause" : "Start");
+  setText("apiStatus", "Connected");
+  setText("upstreamStatus", auto.lastError ? auto.lastError : "OK");
+  setText("modeStatus", auto.simulationOnly === false ? "Check configuration" : "Simulation only");
   setText("equity", fmt(sim.equity)); setText("cash", fmt(sim.cashBalance)); setText("btc", num(sim.btcBalance,8)); setText("realized", fmt(sim.realizedPnl));
   setText("buyRule", `Buy drop ${fmt(rules.dropToBuyUsd)}`); setText("sellRule", `Sell rise ${fmt(rules.riseToSellUsd)}`); setText("trades", `${sim.tradeCount || 0} trades`);
   const spread = (signal.bullish_score || 0) - (signal.bearish_score || 0);
@@ -136,9 +153,15 @@ async function refresh(){
     $("alert").style.display = "none";
     const [auto, ap2] = await Promise.all([getJson("/auto/status"), getJson("/ap2?limit=12")]);
     renderAuto(auto.auto);
+    if (ap2.protocol && ap2.protocol.implemented !== false) {
+      setText("modeStatus", "Protocol flag changed");
+    }
     $("audit").innerHTML = (ap2.auditEvents || []).slice().reverse().slice(0,8).map(e => `<div class="auditRow"><div><strong>${e.eventType || "Audit event"}</strong><span>${e.humanReadableReason || e.status || "Recorded"}</span></div><small>${e.finalAction || "HOLD"}</small></div>`).join("") || `<p class="empty">No AP2 simulation events have been recorded yet.</p>`;
   } catch (e) {
-    $("alert").textContent = e.message; $("alert").style.display = "block";
+    setText("apiStatus", "Unavailable");
+    setText("upstreamStatus", "No current status");
+    $("alert").textContent = `Python API unavailable: ${e.message}`;
+    $("alert").style.display = "block";
   }
 }
 $("toggle").onclick = async () => { const running = $("toggle").textContent === "Pause"; await getJson(running ? "/auto/stop" : "/auto/start"); await refresh(); };

@@ -18,6 +18,8 @@ BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 API_VERSION = "2026-04-26-auto-runner-v2"
+SIMULATION_ONLY = True
+MARKET_DATA_ONLY = True
 AUTO_STATUS_PATH = BASE_DIR / "auto_sim_state.json"
 DASHBOARD_PATH = BASE_DIR / "dashboard.html"
 DASHBOARD_CSS_PATH = BASE_DIR / "dashboard.css"
@@ -405,6 +407,8 @@ class AutoSimulationRunner:
         current_price = self.last_result.price if self.last_result else None
         payload = {
             "apiVersion": API_VERSION,
+            "simulationOnly": SIMULATION_ONLY,
+            "marketDataOnly": MARKET_DATA_ONLY,
             "running": self.is_running(),
             "startedAtUtc": self.started_at_utc,
             "lastTickUtc": self.last_tick_utc,
@@ -460,7 +464,15 @@ class AgentApiHandler(BaseHTTPRequestHandler):
                 self.send_file(WEB_APP_DIR / "icon.png", "image/png")
                 return
             if parsed_url.path == "/health":
-                self.send_json({"ok": True, "service": "btc-agent-api", "apiVersion": API_VERSION})
+                self.send_json(
+                    {
+                        "ok": True,
+                        "service": "btc-agent-api",
+                        "apiVersion": API_VERSION,
+                        "simulationOnly": SIMULATION_ONLY,
+                        "marketDataOnly": MARKET_DATA_ONLY,
+                    }
+                )
                 return
             if parsed_url.path == "/auto/start":
                 AUTO_RUNNER.start()
@@ -503,6 +515,8 @@ class AgentApiHandler(BaseHTTPRequestHandler):
                 return
 
             self.send_json({"ok": False, "error": "Not found"}, status=404)
+        except ValueError as exc:
+            self.send_json({"ok": False, "error": str(exc)}, status=400)
         except Exception as exc:  # noqa: BLE001
             self.send_json({"ok": False, "error": str(exc)}, status=500)
 

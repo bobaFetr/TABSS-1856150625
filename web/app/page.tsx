@@ -94,6 +94,8 @@ type CheckoutResult = {
 };
 
 type AutoStatus = {
+  simulationOnly?: boolean;
+  marketDataOnly?: boolean;
   running: boolean;
   startedAtUtc: string;
   lastTickUtc: string;
@@ -212,6 +214,9 @@ export default function Home() {
   const btcPosition = (auto?.simulation?.btcBalance ?? 0) > 0 ? "LONG" : "FLAT";
   const tradeMessages = auto?.messages ?? [];
   const checkoutChainValid = checkoutResult ? Boolean(checkoutResult.valid ?? checkoutResult.happyPathValid) : false;
+  const apiStatus = error ? "Unavailable" : auto ? "Connected" : "Checking";
+  const upstreamStatus = auto?.lastError ?? "OK";
+  const modeStatus = auto?.simulationOnly === false || ap2Protocol?.implemented !== false ? "Check configuration" : "Simulation only";
 
   const scoreSpread = useMemo(() => {
     const bullish = snapshot?.bullish_score ?? 0;
@@ -402,6 +407,17 @@ export default function Home() {
       </section>
 
       {error ? <div className="alert">{error}</div> : null}
+
+      <section className="noticePanel">
+        <strong>Simulation only.</strong>
+        <span>No real trades are placed, no real money moves, and Binance is used only for public market data.</span>
+      </section>
+
+      <section className="statusStrip">
+        <Stat label="Python API" value={apiStatus} tone={apiStatus === "Unavailable" ? "bad" : undefined} />
+        <Stat label="Market/OpenAI" value={upstreamStatus} tone={auto?.lastError ? "bad" : undefined} />
+        <Stat label="Mode" value={modeStatus} tone={modeStatus === "Simulation only" ? "good" : "bad"} />
+      </section>
 
       <section className="heroGrid">
         <article className={`pricePanel ${tone}`}>

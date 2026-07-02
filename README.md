@@ -2,7 +2,7 @@
 
 A Python-based trading signal agent that watches `BTCUSDT` on Binance in real time, computes technical indicators (RSI, EMA, MACD, ATR), and queries OpenAI for a `BUY`, `SELL`, or `HOLD` recommendation. Includes a built-in web dashboard, a local JSON API, an auto-simulation mode, and an AP2-inspired mandate audit trail.
 
-> **This is a simulation only. No real orders are placed and no real money moves.**
+> **This is a simulation only. No real orders are placed and no real money moves. Binance is used only for public market data.**
 
 ---
 
@@ -15,11 +15,11 @@ python-ai-agent-buy-sell/
 ├── ap2_sim.py              # AP2-inspired mandate creation, signing, and audit logging
 ├── dashboard.html          # Standalone web dashboard (served by api_server.py)
 ├── web/                    # Next.js dashboard (optional development UI)
-├── agent_state.json        # Persisted agent position state (FLAT / LONG)
-├── auto_sim_state.json     # Latest auto-simulation snapshot (written each tick)
-├── ap2_mandates/           # Active intent mandate JSON
-├── ap2_logs/               # AP2 audit log files
-├── .env                    # Your local secrets (not committed)
+├── agent_state.json        # Runtime state, generated locally and ignored by git
+├── auto_sim_state.json     # Runtime auto-simulation snapshot, ignored by git
+├── ap2_mandates/           # Runtime simulated mandate JSON, ignored by git
+├── ap2_logs/               # Runtime AP2-inspired audit logs, ignored by git
+├── .env                    # Your local secrets, ignored by git
 ├── .env.example            # Example environment variable template
 ├── START_DASHBOARD.cmd     # One-click dashboard launcher (Windows)
 ├── start_dashboard.bat     # Alternative double-click launcher (Windows)
@@ -41,7 +41,7 @@ python-ai-agent-buy-sell/
 
 ## First-Time Setup
 
-1. Create a `.env` file in the project root (copy from `.env.example`):
+1. Create a `.env` file in the project root (copy from `.env.example`). Keep real API keys in local environment variables or `.env`; never commit them:
 
 ```env
 OPENAI_API_KEY=your_api_key_here
@@ -53,6 +53,8 @@ OPENAI_TIMEOUT=20
 ```
 
 2. If no `.env` is found, the PowerShell launcher will prompt you for your key and save it automatically.
+
+3. If this project is hosted on GitHub, enable secret scanning for the repository. If a real key was ever committed, rotate it in the provider dashboard before continuing.
 
 ---
 
@@ -137,6 +139,11 @@ Press **Apply** on the dashboard to restart the simulation with new values.
 ## Local JSON API
 
 `api_server.py` starts a `ThreadingHTTPServer` on `http://127.0.0.1:8765`.
+
+Binance endpoints used by this app:
+
+- `GET /api/v3/ticker/price` for the latest public BTC price
+- `GET /api/v3/klines` for public candlestick data
 
 | Endpoint | Description |
 |----------|-------------|
@@ -297,6 +304,18 @@ For real AP2 compliance, this project would still need AP2 mandate schemas and `
 
 ```bash
 python -c "import json, ap2_sim; print(json.dumps(ap2_sim.run_self_test(), indent=2))"
+```
+
+---
+
+## Local Cleanup
+
+Generated state, logs, caches, and local secrets are ignored by git. To clean only generated Python/runtime files from your working tree:
+
+```bash
+find . -type d -name __pycache__ -prune -exec rm -rf {} +
+rm -f agent_state.json auto_sim_state.json tmp_out.txt tmp_err.txt
+rm -rf ap2_logs ap2_mandates
 ```
 
 ---

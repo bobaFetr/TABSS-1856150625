@@ -138,6 +138,31 @@ h2 {
   font-weight: 800;
 }
 
+.noticePanel {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border: 1px solid #d7bf89;
+  border-radius: 7px;
+  background: #fff8eb;
+  color: #6d4209;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.noticePanel strong {
+  color: #553206;
+}
+
+.statusStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
 .heroGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
@@ -671,7 +696,8 @@ h2 {
 
   .checkoutForm,
   .checkoutSummary,
-  .checkoutMessages {
+  .checkoutMessages,
+  .statusStrip {
     grid-template-columns: 1fr 1fr;
   }
 

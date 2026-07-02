@@ -258,6 +258,28 @@ _pkginfo.txt
 !?*.[Cc]ache/
 
 # Others
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+
+# Local secrets
+.env
+!.env.example
+
+# Runtime state and generated logs
+agent_state.json
+auto_sim_state.json
+ap2_mandates/
+ap2_logs/
+tmp_out.txt
+tmp_err.txt
+
+# Node / Next.js
+web/node_modules/
+web/.next/
 ClientBin/
 ~$*
 *~
