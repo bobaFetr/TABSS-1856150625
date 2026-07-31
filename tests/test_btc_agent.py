@@ -162,6 +162,24 @@ class RuntimeFallbackTests(unittest.TestCase):
         self.assertIsNotNone(warning)
         self.assertTrue(warning.startswith("STALE |"))
 
+    def test_fresh_snapshot_always_advances_refresh_timestamp(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_path = Path(temp_dir) / "agent_state.json"
+            old_refresh = "2020-01-01T00:00:00+00:00"
+            btc_agent.save_state(
+                state_path,
+                btc_agent.AgentState(last_snapshot_refresh=old_refresh),
+            )
+            config = btc_agent.AgentConfig(state_file=str(state_path), openai_api_key="")
+
+            with patch("btc_agent.get_market_snapshot", return_value=(sample_snapshot(), True)):
+                btc_agent.run_cycle(config)
+
+            refreshed = btc_agent.load_state(state_path).last_snapshot_refresh
+
+        self.assertNotEqual(refreshed, old_refresh)
+        self.assertIsNotNone(btc_agent.parse_iso_timestamp(refreshed))
+
 
 class SecretSafetyTests(unittest.TestCase):
     def test_example_env_contains_placeholder_not_openai_secret(self) -> None:
@@ -188,6 +206,75 @@ class StatePersistenceTests(unittest.TestCase):
             self.assertEqual(loaded.last_signal, "BUY")
             self.assertEqual(loaded.last_confidence, 77)
             self.assertEqual(list(state_path.parent.glob("*.tmp")), [])
+
+
+class SimulationExecutionTests(unittest.TestCase):
+    def result(self, price: float, signal: str = "HOLD") -> btc_agent.SignalResult:
+        snapshot = sample_snapshot()
+        snapshot.live_price = price
+        return btc_agent.build_signal_result(
+            snapshot,
+            btc_agent.AgentState(),
+            signal,
+            50,
+            ["Test signal."],
+        )
+
+    def test_round_trip_accounts_for_fees_and_adverse_slippage(self) -> None:
+        config = btc_agent.SimulationConfig(
+            enabled=True,
+            starting_cash=100.0,
+            drop_to_buy_usd=1.0,
+            rise_to_sell_usd=1.0,
+            fee_rate_bps=10.0,
+            slippage_bps=2.0,
+        )
+        state = btc_agent.create_simulation_state(config)
+        active_intent = {"payload": {"mandateId": "intent_test"}}
+        state.active_intent_mandate = active_intent
+
+        def cart_record(**kwargs: object) -> dict[str, object]:
+            return {
+                "payload": {
+                    "mandateId": "cart_test",
+                    "price": round(float(kwargs["price"]), 2),
+                }
+            }
+
+        payment = {"payload": {"mandateId": "payment_test"}}
+        with (
+            patch("btc_agent.ap2_sim.create_cart_mandate", side_effect=cart_record),
+            patch("btc_agent.ap2_sim.validate_cart_mandate", return_value=(True, "OK", active_intent)),
+            patch("btc_agent.ap2_sim.create_payment_mandate", return_value=payment),
+        ):
+            btc_agent.execute_ap2_buy(self.result(100.0), config, state, 102.0)
+            self.assertGreater(state.btc_balance, 0)
+            self.assertAlmostEqual(state.total_fees_usd, 0.1, places=6)
+            self.assertGreater(state.entry_price or 0, 100.0)
+
+            btc_agent.execute_ap2_sell(self.result(102.0), config, state)
+
+        self.assertEqual(state.btc_balance, 0.0)
+        self.assertLess(state.cash_balance, 102.0)
+        self.assertGreater(state.total_fees_usd, 0.1)
+        self.assertGreater(state.total_slippage_cost_usd, 0.0)
+        self.assertAlmostEqual(state.realized_pnl, state.cash_balance - 100.0, places=6)
+
+    def test_signal_confirmation_blocks_mismatched_trigger(self) -> None:
+        config = btc_agent.SimulationConfig(
+            enabled=True,
+            starting_cash=100.0,
+            drop_to_buy_usd=1.0,
+            require_signal_confirmation=True,
+        )
+        state = btc_agent.create_simulation_state(config)
+        state.last_seen_price = 102.0
+
+        with patch("btc_agent.execute_ap2_buy") as execute_buy:
+            messages = btc_agent.update_simulation(self.result(100.0, "HOLD"), config, state)
+
+        execute_buy.assert_not_called()
+        self.assertTrue(messages[0].startswith("TRIGGER WAIT"))
 
 
 if __name__ == "__main__":

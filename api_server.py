@@ -185,9 +185,12 @@ def build_auto_config() -> tuple[btc_agent.AgentConfig, btc_agent.SimulationConf
     simulation_config = btc_agent.SimulationConfig(
         enabled=True,
         buy_cooldown_seconds=btc_agent.env_int("AUTO_SIM_BUY_COOLDOWN_SECONDS", 5),
-        drop_to_buy_usd=btc_agent.env_float("AUTO_SIM_DROP_TO_BUY_USD", 1.0),
-        rise_to_sell_usd=btc_agent.env_float("AUTO_SIM_RISE_TO_SELL_USD", 1.0),
+        drop_to_buy_usd=btc_agent.env_float("AUTO_SIM_DROP_TO_BUY_USD", 25.0),
+        rise_to_sell_usd=btc_agent.env_float("AUTO_SIM_RISE_TO_SELL_USD", 25.0),
         starting_cash=btc_agent.env_float("AUTO_SIM_STARTING_CASH", 500.0),
+        fee_rate_bps=btc_agent.env_float("AUTO_SIM_FEE_RATE_BPS", 10.0),
+        slippage_bps=btc_agent.env_float("AUTO_SIM_SLIPPAGE_BPS", 2.0),
+        require_signal_confirmation=env_bool("AUTO_SIM_REQUIRE_SIGNAL_CONFIRMATION", False),
     )
     return config, simulation_config
 
@@ -223,6 +226,18 @@ def query_float(query: dict[str, list[str]], name: str, default: float, minimum:
     if value < minimum or value > maximum:
         raise ValueError(f"{name} must be between {minimum:g} and {maximum:g}.")
     return value
+
+
+def query_bool(query: dict[str, list[str]], name: str, default: bool) -> bool:
+    raw_value = query_value(query, name)
+    if raw_value is None:
+        return default
+    normalized = raw_value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false.")
 
 
 def build_auto_config_from_query(
@@ -278,6 +293,17 @@ def build_auto_config_from_query(
             1.0,
             1000.0,
         ),
+        fee_rate_bps=query_float(
+            query, "feeRateBps", current_simulation_config.fee_rate_bps, 0.0, 1000.0
+        ),
+        slippage_bps=query_float(
+            query, "slippageBps", current_simulation_config.slippage_bps, 0.0, 1000.0
+        ),
+        require_signal_confirmation=query_bool(
+            query,
+            "requireSignalConfirmation",
+            current_simulation_config.require_signal_confirmation,
+        ),
     )
     return config, simulation_config
 
@@ -301,6 +327,8 @@ def simulation_state_to_dict(state: btc_agent.SimulationState | None, current_pr
         "realizedPnl": round(state.realized_pnl, 2),
         "unrealizedPnl": round(unrealized, 2),
         "tradeCount": state.trade_count,
+        "totalFeesUsd": round(state.total_fees_usd, 4),
+        "totalSlippageCostUsd": round(state.total_slippage_cost_usd, 4),
         "lastSeenPrice": state.last_seen_price,
     }
 
@@ -372,9 +400,21 @@ class AutoSimulationRunner:
                 daemon=True,
             )
             self.thread.start()
+            save_auto_status(self.status_locked())
 
     def stop(self) -> None:
-        self.stop_event.set()
+        with self.lock:
+            thread = self.thread
+            self.stop_event.set()
+            self.generation += 1
+
+        if thread and thread is not threading.current_thread() and thread.is_alive():
+            thread.join(timeout=5)
+
+        with self.lock:
+            if self.thread is thread:
+                self.thread = None
+            save_auto_status(self.status_locked())
 
     def configure(self, query: dict[str, list[str]]) -> dict[str, Any]:
         with self.lock:
@@ -467,6 +507,12 @@ class AutoSimulationRunner:
                 "buyCooldownSeconds": self.simulation_config.buy_cooldown_seconds,
                 "dropToBuyUsd": self.simulation_config.drop_to_buy_usd,
                 "riseToSellUsd": self.simulation_config.rise_to_sell_usd,
+                "feeRateBps": self.simulation_config.fee_rate_bps,
+                "slippageBps": self.simulation_config.slippage_bps,
+                "requireSignalConfirmation": self.simulation_config.require_signal_confirmation,
+                "executionMode": (
+                    "PRICE_AND_SIGNAL" if self.simulation_config.require_signal_confirmation else "PRICE_TRIGGER_ONLY"
+                ),
             },
             "signal": asdict(self.last_result) if self.last_result else None,
             "simulation": simulation_state_to_dict(self.simulation_state, current_price),
@@ -708,15 +754,16 @@ def main() -> int:
     if not is_loopback_host(host) and not api_token():
         print("Refusing non-loopback API binding without AGENT_API_TOKEN.", file=sys.stderr)
         return 2
+    server = ThreadingHTTPServer((host, port), AgentApiHandler)
     if env_bool("AUTO_SIM_ENABLED", True):
         AUTO_RUNNER.start()
-    server = ThreadingHTTPServer((host, port), AgentApiHandler)
     print(f"BTC agent API listening on http://{host}:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         return 0
     finally:
+        AUTO_RUNNER.stop()
         server.server_close()
     return 0
 

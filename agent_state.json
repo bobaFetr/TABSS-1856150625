@@ -1,0 +1,33 @@
+{
+  "position": "FLAT",
+  "last_signal": "HOLD",
+  "last_updated": "2026-07-31T18:16:19+00:00",
+  "last_confidence": 42,
+  "last_reasons": [
+    "Using rule-based fallback because OPENAI_API_KEY is missing.",
+    "Price is above the fast EMA and MACD momentum is improving.",
+    "RSI shows constructive upward momentum without being overbought."
+  ],
+  "last_signal_refresh": "",
+  "last_snapshot_refresh": "2026-07-31T17:35:53+00:00",
+  "last_snapshot": {
+    "symbol": "BTCUSDT",
+    "interval": "15m",
+    "live_price": 63154.62,
+    "candle_close_price": 63154.62,
+    "rsi": 49.67892637303883,
+    "ema_fast": 63047.18168904706,
+    "ema_mid": 63091.11147153866,
+    "ema_slow": 63492.727453231586,
+    "macd_histogram": 84.57933710499441,
+    "atr": 158.56894974355546,
+    "bullish_score": 3,
+    "bearish_score": 2,
+    "reasons": [
+      "Short-term trend is below medium and long trend.",
+      "Price is above the fast EMA and MACD momentum is improving.",
+      "RSI shows constructive upward momentum without being overbought.",
+      "Rule-based score is mixed."
+    ]
+  }
+}

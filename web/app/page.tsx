@@ -107,6 +107,10 @@ type AutoStatus = {
     buyCooldownSeconds: number;
     dropToBuyUsd: number;
     riseToSellUsd: number;
+    feeRateBps: number;
+    slippageBps: number;
+    requireSignalConfirmation: boolean;
+    executionMode: string;
   };
   signal: Signal | null;
   simulation: {
@@ -118,6 +122,8 @@ type AutoStatus = {
     unrealizedPnl?: number;
     tradeCount?: number;
     lastSeenPrice?: number;
+    totalFeesUsd?: number;
+    totalSlippageCostUsd?: number;
   };
   messages: string[];
 };
@@ -187,8 +193,11 @@ export default function Home() {
     startingCash: "500",
     pollSeconds: "5",
     buyCooldownSeconds: "5",
-    dropToBuyUsd: "1",
-    riseToSellUsd: "1"
+    dropToBuyUsd: "25",
+    riseToSellUsd: "25",
+    feeRateBps: "10",
+    slippageBps: "2",
+    requireSignalConfirmation: false
   });
   const [settingsTouched, setSettingsTouched] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -316,18 +325,23 @@ export default function Home() {
       pollSeconds: String(auto.pollSeconds),
       buyCooldownSeconds: String(auto.rules.buyCooldownSeconds),
       dropToBuyUsd: String(auto.rules.dropToBuyUsd),
-      riseToSellUsd: String(auto.rules.riseToSellUsd)
+      riseToSellUsd: String(auto.rules.riseToSellUsd),
+      feeRateBps: String(auto.rules.feeRateBps),
+      slippageBps: String(auto.rules.slippageBps),
+      requireSignalConfirmation: auto.rules.requireSignalConfirmation
     });
   }, [auto, settingsTouched]);
 
-  function updateSetting(name: keyof typeof settings, value: string) {
+  function updateSetting(name: keyof typeof settings, value: string | boolean) {
     setSettingsTouched(true);
     setSettings((current) => ({ ...current, [name]: value }));
   }
 
   async function applySettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const params = new URLSearchParams(settings);
+    const params = new URLSearchParams(
+      Object.entries(settings).map(([name, value]) => [name, String(value)])
+    );
     await loadDashboard("configure-auto", params);
     setSettingsTouched(false);
   }
@@ -459,11 +473,14 @@ export default function Home() {
             <Stat label="Cash" value={formatPrice(auto?.simulation?.cashBalance)} />
             <Stat label="BTC" value={formatNumber(auto?.simulation?.btcBalance, 8)} />
             <Stat label="Realized" value={formatPrice(auto?.simulation?.realizedPnl)} tone={(auto?.simulation?.realizedPnl ?? 0) >= 0 ? "good" : "bad"} />
+            <Stat label="Fees" value={formatPrice(auto?.simulation?.totalFeesUsd)} />
+            <Stat label="Slippage" value={formatPrice(auto?.simulation?.totalSlippageCostUsd)} />
           </div>
           <div className="ruleStrip">
             <span>Buy drop {formatPrice(auto?.rules?.dropToBuyUsd)}</span>
             <span>Sell rise {formatPrice(auto?.rules?.riseToSellUsd)}</span>
             <span>{auto?.simulation?.tradeCount ?? 0} trades</span>
+            <span>{auto?.rules?.executionMode === "PRICE_AND_SIGNAL" ? "Signal confirmed" : "Price trigger only"}</span>
           </div>
           <form className="settingsForm" onSubmit={applySettings}>
             <label>
@@ -518,6 +535,18 @@ export default function Home() {
                 value={settings.riseToSellUsd}
                 onChange={(event) => updateSetting("riseToSellUsd", event.target.value)}
               />
+            </label>
+            <label>
+              <span>Fee bps</span>
+              <input min="0" max="1000" step="0.1" type="number" value={settings.feeRateBps} onChange={(event) => updateSetting("feeRateBps", event.target.value)} />
+            </label>
+            <label>
+              <span>Slippage bps</span>
+              <input min="0" max="1000" step="0.1" type="number" value={settings.slippageBps} onChange={(event) => updateSetting("slippageBps", event.target.value)} />
+            </label>
+            <label className="checkField">
+              <input type="checkbox" checked={settings.requireSignalConfirmation} onChange={(event) => updateSetting("requireSignalConfirmation", event.target.checked)} />
+              <span>Require matching signal</span>
             </label>
             <button className="button primary applyButton" type="submit" disabled={loading}>
               Apply

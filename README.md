@@ -133,8 +133,10 @@ powershell -ExecutionPolicy Bypass -File .\start_dashboard.ps1 -ApiPort 8765 -We
 | Starting cash | `$500.00` | `$1.00` – `$1000.00` |
 | Loop interval | 5 seconds | 1 – 3600 seconds |
 | Buy cooldown | 5 seconds | 0 – 86400 seconds |
-| Buy trigger (drop) | `$1.00` | `$0.01` – `$100000.00` |
-| Sell trigger (rise) | `$1.00` | `$0.01` – `$100000.00` |
+| Buy trigger (drop) | `$25.00` | `$0.01` – `$100000.00` |
+| Sell trigger (rise) | `$25.00` | `$0.01` – `$100000.00` |
+| Simulated fee | 10 bps (0.10%) | 0 – 1000 bps |
+| Simulated slippage | 2 bps (0.02%) | 0 – 1000 bps |
 
 Press **Apply** on the dashboard to restart the simulation with new values.
 
@@ -192,6 +194,9 @@ The demo registers a user, merchant, and agent, generates ECDSA P-256 key pairs,
 | `buyCooldownSeconds` | int | Minimum seconds between buys (0–86400) |
 | `dropToBuyUsd` | float | USD drop required to trigger a buy (0.01–100000) |
 | `riseToSellUsd` | float | USD rise from entry required to trigger a sell (0.01–100000) |
+| `feeRateBps` | float | Simulated fee in basis points (0–1000) |
+| `slippageBps` | float | Simulated adverse execution slippage in basis points (0–1000) |
+| `requireSignalConfirmation` | bool | Require BUY/SELL signal agreement in addition to the price trigger |
 
 ---
 
@@ -237,8 +242,11 @@ The rule-based scoring system counts bullish and bearish signals from the above 
 | `AUTO_SIM_SIGNAL_REFRESH_SECONDS` | same as poll | Signal refresh interval for auto simulation |
 | `AUTO_SIM_STARTING_CASH` | `500.0` | Starting cash for auto simulation |
 | `AUTO_SIM_BUY_COOLDOWN_SECONDS` | `5` | Buy cooldown for auto simulation |
-| `AUTO_SIM_DROP_TO_BUY_USD` | `1.0` | Buy trigger for auto simulation |
-| `AUTO_SIM_RISE_TO_SELL_USD` | `1.0` | Sell trigger for auto simulation |
+| `AUTO_SIM_DROP_TO_BUY_USD` | `25.0` | Buy trigger for auto simulation |
+| `AUTO_SIM_RISE_TO_SELL_USD` | `25.0` | Sell trigger for auto simulation |
+| `AUTO_SIM_FEE_RATE_BPS` | `10.0` | Simulated execution fee in basis points |
+| `AUTO_SIM_SLIPPAGE_BPS` | `2.0` | Simulated adverse slippage in basis points |
+| `AUTO_SIM_REQUIRE_SIGNAL_CONFIRMATION` | `false` | Require signal agreement before a price-triggered trade |
 | `AGENT_API_HOST` | `127.0.0.1` | API server bind address |
 | `AGENT_API_PORT` | `8765` | API server port |
 | `AGENT_API_TOKEN` | _(empty)_ | Bearer token required for mutations when configured; mandatory for non-loopback binding |

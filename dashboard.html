@@ -81,14 +81,17 @@
     </article>
     <article class="card">
       <div class="panelHead"><h2>Simulation</h2></div>
-      <div class="stats"><div class="stat"><span class="label">Equity</span><strong id="equity">-</strong></div><div class="stat"><span class="label">Cash</span><strong id="cash">-</strong></div><div class="stat"><span class="label">BTC</span><strong id="btc">-</strong></div><div class="stat"><span class="label">Realized</span><strong id="realized">-</strong></div></div>
-      <div class="rules"><span id="buyRule">Buy drop -</span><span id="sellRule">Sell rise -</span><span id="trades">0 trades</span></div>
+      <div class="stats"><div class="stat"><span class="label">Equity</span><strong id="equity">-</strong></div><div class="stat"><span class="label">Cash</span><strong id="cash">-</strong></div><div class="stat"><span class="label">BTC</span><strong id="btc">-</strong></div><div class="stat"><span class="label">Realized</span><strong id="realized">-</strong></div><div class="stat"><span class="label">Fees</span><strong id="fees">-</strong></div><div class="stat"><span class="label">Slippage</span><strong id="slippage">-</strong></div></div>
+      <div class="rules"><span id="buyRule">Buy drop -</span><span id="sellRule">Sell rise -</span><span id="executionMode">Price trigger only</span><span id="trades">0 trades</span></div>
       <form id="settings" class="settings">
         <label><span>Money</span><input id="startingCash" type="number" min="1" max="1000" step="1"></label>
         <label><span>Loop sec</span><input id="pollSeconds" type="number" min="1" max="3600" step="1"></label>
         <label><span>Buy again sec</span><input id="buyCooldownSeconds" type="number" min="0" max="86400" step="1"></label>
         <label><span>Buy drop $</span><input id="dropToBuyUsd" type="number" min="0.01" step="0.01"></label>
         <label><span>Sell rise $</span><input id="riseToSellUsd" type="number" min="0.01" step="0.01"></label>
+        <label><span>Fee bps</span><input id="feeRateBps" type="number" min="0" max="1000" step="0.1"></label>
+        <label><span>Slippage bps</span><input id="slippageBps" type="number" min="0" max="1000" step="0.1"></label>
+        <label><span>Require matching signal</span><input id="requireSignalConfirmation" type="checkbox"></label>
         <button class="primary apply" type="submit">Apply</button>
       </form>
     </article>
@@ -103,7 +106,7 @@
 const money = new Intl.NumberFormat("en-US", {style:"currency", currency:"USD", maximumFractionDigits:2});
 const $ = (id) => document.getElementById(id);
 let touched = false;
-const inputIds = ["startingCash","pollSeconds","buyCooldownSeconds","dropToBuyUsd","riseToSellUsd"];
+const inputIds = ["startingCash","pollSeconds","buyCooldownSeconds","dropToBuyUsd","riseToSellUsd","feeRateBps","slippageBps","requireSignalConfirmation"];
 inputIds.forEach(id => $(id).addEventListener("input", () => touched = true));
 function fmt(v){ return typeof v === "number" ? money.format(v) : "-"; }
 function num(v,d=2){ return typeof v === "number" ? v.toFixed(d) : "-"; }
@@ -131,6 +134,9 @@ function syncInputs(auto){
   $("buyCooldownSeconds").value = auto.rules.buyCooldownSeconds;
   $("dropToBuyUsd").value = auto.rules.dropToBuyUsd;
   $("riseToSellUsd").value = auto.rules.riseToSellUsd;
+  $("feeRateBps").value = auto.rules.feeRateBps;
+  $("slippageBps").value = auto.rules.slippageBps;
+  $("requireSignalConfirmation").checked = auto.rules.requireSignalConfirmation;
 }
 function renderAuto(auto){
   const signal = auto.signal || {};
@@ -149,8 +155,9 @@ function renderAuto(auto){
   setText("apiStatus", "Connected");
   setText("upstreamStatus", auto.lastError ? auto.lastError : "OK");
   setText("modeStatus", auto.simulationOnly === false ? "Check configuration" : "Simulation only");
-  setText("equity", fmt(sim.equity)); setText("cash", fmt(sim.cashBalance)); setText("btc", num(sim.btcBalance,8)); setText("realized", fmt(sim.realizedPnl));
+  setText("equity", fmt(sim.equity)); setText("cash", fmt(sim.cashBalance)); setText("btc", num(sim.btcBalance,8)); setText("realized", fmt(sim.realizedPnl)); setText("fees", fmt(sim.totalFeesUsd)); setText("slippage", fmt(sim.totalSlippageCostUsd));
   setText("buyRule", `Buy drop ${fmt(rules.dropToBuyUsd)}`); setText("sellRule", `Sell rise ${fmt(rules.riseToSellUsd)}`); setText("trades", `${sim.tradeCount || 0} trades`);
+  setText("executionMode", rules.executionMode === "PRICE_AND_SIGNAL" ? "Signal confirmed" : "Price trigger only");
   const spread = (signal.bullish_score || 0) - (signal.bearish_score || 0);
   $("market").innerHTML = [
     ["RSI", num(signal.rsi)], ["Bullish score", signal.bullish_score ?? 0], ["Bearish score", signal.bearish_score ?? 0],
@@ -179,7 +186,7 @@ async function refresh(){
 }
 $("toggle").onclick = async () => { const running = $("toggle").textContent === "Pause"; await postJson(running ? "/auto/stop" : "/auto/start"); await refresh(); };
 $("refresh").onclick = refresh;
-$("settings").onsubmit = async (e) => { e.preventDefault(); const p = new URLSearchParams(); inputIds.forEach(id => p.set(id, $(id).value)); await postJson("/auto/configure?" + p.toString()); touched = false; await refresh(); };
+$("settings").onsubmit = async (e) => { e.preventDefault(); const p = new URLSearchParams(); inputIds.forEach(id => p.set(id, $(id).type === "checkbox" ? $(id).checked : $(id).value)); await postJson("/auto/configure?" + p.toString()); touched = false; await refresh(); };
 refresh(); setInterval(refresh, 2000);
 </script>
 </body>

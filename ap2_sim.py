@@ -269,6 +269,9 @@ def create_intent_mandate(
     buy_cooldown_seconds: int,
     buy_threshold_usd: float,
     sell_threshold_usd: float,
+    fee_rate_bps: float = 0.0,
+    slippage_bps: float = 0.0,
+    require_signal_confirmation: bool = False,
 ) -> dict[str, Any]:
     payload = {
         "mandateType": "IntentMandate",
@@ -287,6 +290,11 @@ def create_intent_mandate(
             "type": "rise_from_entry_price",
             "thresholdUsd": round(sell_threshold_usd, 2),
         },
+        "executionCosts": {
+            "feeRateBps": round(fee_rate_bps, 4),
+            "slippageBps": round(slippage_bps, 4),
+        },
+        "requireSignalConfirmation": bool(require_signal_confirmation),
         "realTradingEnabled": False,
         "realMoneyMoved": False,
         "allowWithdrawals": False,
@@ -478,6 +486,9 @@ def create_payment_mandate(
     btc_before: float,
     btc_after: float,
     reason: str,
+    market_price: float | None = None,
+    fee_usd: float = 0.0,
+    slippage_bps: float = 0.0,
 ) -> dict[str, Any]:
     intent_payload = intent_record["payload"]
     cart_payload = cart_record["payload"]
@@ -494,6 +505,9 @@ def create_payment_mandate(
         "executionPrice": round(execution_price, 2),
         "quantity": round(quantity, 8),
         "notionalUsd": round(notional_usd, 2),
+        "marketPrice": round(market_price if market_price is not None else execution_price, 2),
+        "feeUsd": round(fee_usd, 4),
+        "slippageBps": float(slippage_bps),
         "cashBefore": round(cash_before, 2),
         "cashAfter": round(cash_after, 2),
         "btcBefore": round(btc_before, 8),

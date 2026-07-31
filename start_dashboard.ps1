@@ -175,8 +175,10 @@ try {
     $env:AUTO_SIM_POLL_SECONDS = "5"
     $env:AUTO_SIM_STARTING_CASH = "500"
     $env:AUTO_SIM_BUY_COOLDOWN_SECONDS = "5"
-    $env:AUTO_SIM_DROP_TO_BUY_USD = "1"
-    $env:AUTO_SIM_RISE_TO_SELL_USD = "1"
+    $env:AUTO_SIM_DROP_TO_BUY_USD = "25"
+    $env:AUTO_SIM_RISE_TO_SELL_USD = "25"
+    $env:AUTO_SIM_FEE_RATE_BPS = "10"
+    $env:AUTO_SIM_SLIPPAGE_BPS = "2"
 
     Write-Host ""
     Write-Host "Starting BTC Signal Agent dashboard..." -ForegroundColor Cyan

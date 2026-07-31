@@ -141,6 +141,9 @@ class SimulationConfig:
     drop_to_buy_usd: float = 0.0
     rise_to_sell_usd: float = 0.0
     starting_cash: float = 1000.0
+    fee_rate_bps: float = 10.0
+    slippage_bps: float = 2.0
+    require_signal_confirmation: bool = False
 
 
 @dataclass
@@ -153,6 +156,8 @@ class SimulationState:
     entry_price: float | None = None
     realized_pnl: float = 0.0
     trade_count: int = 0
+    total_fees_usd: float = 0.0
+    total_slippage_cost_usd: float = 0.0
     last_seen_price: float | None = None
     active_intent_mandate: dict[str, Any] | None = None
 
@@ -867,6 +872,9 @@ def initialize_ap2_simulation(symbol: str, config: SimulationConfig) -> tuple[di
             buy_cooldown_seconds=config.buy_cooldown_seconds,
             buy_threshold_usd=config.drop_to_buy_usd,
             sell_threshold_usd=config.rise_to_sell_usd,
+            fee_rate_bps=config.fee_rate_bps,
+            slippage_bps=config.slippage_bps,
+            require_signal_confirmation=config.require_signal_confirmation,
         )
     except Exception as exc:  # noqa: BLE001
         return None, [f"AP2 SIM | BLOCKED | Could not create Intent Mandate: {exc}"]
@@ -888,7 +896,9 @@ def create_buy_cart_mandate(
     if intent_record is None:
         return None, "No active Intent Mandate is available for simulated BUY."
 
-    quantity = state.cash_balance / result.price if result.price > 0 else 0.0
+    execution_price = result.price * (1 + (config.slippage_bps / 10000))
+    fee = state.cash_balance * (config.fee_rate_bps / 10000)
+    quantity = (state.cash_balance - fee) / execution_price if execution_price > 0 else 0.0
     price_change = result.price - previous_seen_price
     reason = (
         f"BTC dropped by ${abs(price_change):.2f} from the previous observed price, "
@@ -898,7 +908,7 @@ def create_buy_cart_mandate(
         intent_record=intent_record,
         action="BUY",
         symbol=result.symbol,
-        price=result.price,
+        price=execution_price,
         quantity=quantity,
         notional_usd=state.cash_balance,
         ai_signal=result.signal,
@@ -908,6 +918,9 @@ def create_buy_cart_mandate(
             "currentPrice": round(result.price, 2),
             "priceChangeUsd": round(price_change, 2),
             "buyThresholdUsd": round(config.drop_to_buy_usd, 2),
+            "marketPrice": round(result.price, 2),
+            "slippageBps": config.slippage_bps,
+            "feeRateBps": config.fee_rate_bps,
         },
         reason=reason,
     )
@@ -927,6 +940,10 @@ def create_sell_cart_mandate(
         return None, "No simulated entry price is available for the SELL."
 
     rise_from_entry = result.price - state.entry_price
+    execution_price = result.price * (1 - (config.slippage_bps / 10000))
+    gross_received = state.btc_balance * execution_price
+    fee = gross_received * (config.fee_rate_bps / 10000)
+    net_received = gross_received - fee
     reason = (
         f"BTC rose by ${rise_from_entry:.2f} from entry, "
         f"exceeding the ${config.rise_to_sell_usd:.2f} sell threshold."
@@ -935,9 +952,9 @@ def create_sell_cart_mandate(
         intent_record=intent_record,
         action="SELL",
         symbol=result.symbol,
-        price=result.price,
+        price=execution_price,
         quantity=state.btc_balance,
-        notional_usd=state.btc_balance * result.price,
+        notional_usd=net_received,
         ai_signal=result.signal,
         ai_confidence=result.confidence,
         rule_trigger={
@@ -945,6 +962,9 @@ def create_sell_cart_mandate(
             "currentPrice": round(result.price, 2),
             "riseFromEntryUsd": round(rise_from_entry, 2),
             "sellThresholdUsd": round(config.rise_to_sell_usd, 2),
+            "marketPrice": round(result.price, 2),
+            "slippageBps": config.slippage_bps,
+            "feeRateBps": config.fee_rate_bps,
         },
         reason=reason,
     )
@@ -1004,7 +1024,11 @@ def execute_ap2_buy(
     cash_before = state.cash_balance
     btc_before = state.btc_balance
     spent = state.cash_balance
-    btc_after = spent / result.price
+    execution_price = float(cart_record["payload"]["price"])
+    fee = spent * (config.fee_rate_bps / 10000)
+    trade_notional = spent - fee
+    btc_after = trade_notional / execution_price
+    slippage_cost = btc_after * max(0.0, execution_price - result.price)
 
     payment_reason = (
         "Simulated BUY executed because the Cart Mandate matched the active Intent Mandate "
@@ -1015,7 +1039,7 @@ def execute_ap2_buy(
         cart_record=cart_record,
         action="BUY",
         symbol=result.symbol,
-        execution_price=result.price,
+        execution_price=execution_price,
         quantity=btc_after,
         notional_usd=spent,
         cash_before=cash_before,
@@ -1023,17 +1047,23 @@ def execute_ap2_buy(
         btc_before=btc_before,
         btc_after=btc_after,
         reason=payment_reason,
+        market_price=result.price,
+        fee_usd=fee,
+        slippage_bps=config.slippage_bps,
     )
 
     state.btc_balance = btc_after
     state.cash_balance = 0.0
     state.entry_cash_value = spent
-    state.entry_price = result.price
+    state.entry_price = execution_price
+    state.total_fees_usd += fee
+    state.total_slippage_cost_usd += slippage_cost
     state.last_buy_monotonic = time.monotonic()
     state.trade_count += 1
 
     messages.append(
-        f"AUTO BUY | Spent ${spent:.2f} | Bought {state.btc_balance:.8f} BTC at ${result.price:.2f} "
+        f"AUTO BUY | Spent ${spent:.2f} | Fee ${fee:.2f} | Bought {state.btc_balance:.8f} BTC "
+        f"at effective ${execution_price:.2f} (market ${result.price:.2f}) "
         f"after a ${previous_seen_price - result.price:.2f} drop | "
         f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f}"
     )
@@ -1069,8 +1099,12 @@ def execute_ap2_sell(
     entry_price = state.entry_price or result.price
     cash_before = state.cash_balance
     btc_before = state.btc_balance
+    execution_price = float(cart_record["payload"]["price"])
+    gross_received = state.btc_balance * execution_price
+    fee = gross_received * (config.fee_rate_bps / 10000)
+    received = gross_received - fee
+    slippage_cost = state.btc_balance * max(0.0, result.price - execution_price)
     equity_before = state.btc_balance * result.price
-    received = state.btc_balance * result.price
     pnl = received - state.entry_cash_value
     pnl_pct = (pnl / state.entry_cash_value * 100) if state.entry_cash_value else 0.0
 
@@ -1083,7 +1117,7 @@ def execute_ap2_sell(
         cart_record=cart_record,
         action="SELL",
         symbol=result.symbol,
-        execution_price=result.price,
+        execution_price=execution_price,
         quantity=btc_before,
         notional_usd=received,
         cash_before=cash_before,
@@ -1091,9 +1125,14 @@ def execute_ap2_sell(
         btc_before=btc_before,
         btc_after=0.0,
         reason=payment_reason,
+        market_price=result.price,
+        fee_usd=fee,
+        slippage_bps=config.slippage_bps,
     )
 
     state.realized_pnl += pnl
+    state.total_fees_usd += fee
+    state.total_slippage_cost_usd += slippage_cost
     state.cash_balance = received
     state.btc_balance = 0.0
     state.entry_cash_value = 0.0
@@ -1103,7 +1142,8 @@ def execute_ap2_sell(
     state.trade_count += 1
 
     messages.append(
-        f"AUTO SELL | Received ${received:.2f} | P/L {pnl:+.2f} ({pnl_pct:+.2f}%) at ${result.price:.2f} "
+        f"AUTO SELL | Net ${received:.2f} | Fee ${fee:.2f} | P/L {pnl:+.2f} ({pnl_pct:+.2f}%) "
+        f"at effective ${execution_price:.2f} (market ${result.price:.2f}) "
         f"after a ${result.price - entry_price:.2f} rise from entry | "
         f"Cash: ${cash_before:.2f} -> ${state.cash_balance:.2f} | "
         f"Equity before sell: ${equity_before:.2f}"
@@ -1133,6 +1173,8 @@ def update_simulation(
         and now >= state.next_buy_monotonic
         and current_price <= previous_seen_price - config.drop_to_buy_usd
     ):
+        if config.require_signal_confirmation and result.signal != "BUY":
+            return [f"TRIGGER WAIT | BUY price trigger met, but signal is {result.signal}."]
         messages.extend(execute_ap2_buy(result, config, state, previous_seen_price))
         return messages
 
@@ -1141,6 +1183,8 @@ def update_simulation(
         and state.entry_price is not None
         and current_price >= state.entry_price + config.rise_to_sell_usd
     ):
+        if config.require_signal_confirmation and result.signal != "SELL":
+            return [f"TRIGGER WAIT | SELL price trigger met, but signal is {result.signal}."]
         messages.extend(execute_ap2_sell(result, config, state))
 
     return messages
@@ -1263,7 +1307,7 @@ def _run_cycle_unlocked(config: AgentConfig) -> SignalResult:
         signal, confidence, reasons = build_rule_based_signal(snapshot)
         reasons = ["Using rule-based fallback because OPENAI_API_KEY is missing."] + reasons[:2]
 
-    if snapshot_refreshed and not snapshot_refreshed_at:
+    if snapshot_refreshed:
         snapshot_refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     result = build_signal_result(snapshot, state, signal, confidence, reasons)

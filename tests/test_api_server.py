@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import threading
 import unittest
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 
 import api_server
@@ -14,6 +16,15 @@ import api_server
 class ApiServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.status_path_patcher = patch.object(
+            api_server,
+            "AUTO_STATUS_PATH",
+            Path(cls.temp_dir.name) / "auto_sim_state.json",
+        )
+        cls.runner_patcher = patch.object(api_server, "AUTO_RUNNER", api_server.AutoSimulationRunner())
+        cls.status_path_patcher.start()
+        cls.runner_patcher.start()
         cls.server = ThreadingHTTPServer(("127.0.0.1", 0), api_server.AgentApiHandler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
@@ -25,6 +36,9 @@ class ApiServerTests(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
         cls.thread.join(timeout=5)
+        cls.runner_patcher.stop()
+        cls.status_path_patcher.stop()
+        cls.temp_dir.cleanup()
 
     def get_json(self, path: str) -> tuple[int, dict[str, object]]:
         try:
@@ -199,6 +213,20 @@ class ApiSecurityUnitTests(unittest.TestCase):
 
 
 class AutoRunnerUnitTests(unittest.TestCase):
+    def test_stop_persists_not_running_status(self) -> None:
+        runner = api_server.AutoSimulationRunner()
+
+        with (
+            patch("api_server.btc_agent.initialize_ap2_simulation", return_value=(None, [])),
+            patch.object(runner, "_run", side_effect=lambda *args: args[1].wait()),
+            patch("api_server.save_auto_status") as save_status,
+        ):
+            runner.start()
+            runner.stop()
+
+        self.assertFalse(runner.is_running())
+        self.assertFalse(save_status.call_args.args[0]["running"])
+
     def test_start_preserves_settings_applied_while_stopped(self) -> None:
         runner = api_server.AutoSimulationRunner()
         runner.configure(
@@ -208,12 +236,16 @@ class AutoRunnerUnitTests(unittest.TestCase):
                 "buyCooldownSeconds": ["2"],
                 "dropToBuyUsd": ["0.01"],
                 "riseToSellUsd": ["0.01"],
+                "feeRateBps": ["10"],
+                "slippageBps": ["2"],
+                "requireSignalConfirmation": ["true"],
             }
         )
 
         with (
             patch("api_server.btc_agent.initialize_ap2_simulation", return_value=(None, [])),
             patch.object(runner, "_run", return_value=None),
+            patch("api_server.save_auto_status"),
         ):
             runner.start()
             if runner.thread:
@@ -224,6 +256,9 @@ class AutoRunnerUnitTests(unittest.TestCase):
         self.assertEqual(runner.simulation_config.buy_cooldown_seconds, 2)
         self.assertEqual(runner.simulation_config.drop_to_buy_usd, 0.01)
         self.assertEqual(runner.simulation_config.rise_to_sell_usd, 0.01)
+        self.assertEqual(runner.simulation_config.fee_rate_bps, 10.0)
+        self.assertEqual(runner.simulation_config.slippage_bps, 2.0)
+        self.assertTrue(runner.simulation_config.require_signal_confirmation)
 
 if __name__ == "__main__":
     unittest.main()

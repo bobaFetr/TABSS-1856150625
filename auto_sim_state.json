@@ -1,0 +1,35 @@
+{
+  "apiVersion": "2026-07-31-hardened-v3",
+  "simulationOnly": true,
+  "marketDataOnly": true,
+  "running": false,
+  "startedAtUtc": "2026-07-31T18:30:11+00:00",
+  "lastTickUtc": "",
+  "lastError": null,
+  "pollSeconds": 2,
+  "rules": {
+    "startingCash": 100.0,
+    "buyCooldownSeconds": 2,
+    "dropToBuyUsd": 0.01,
+    "riseToSellUsd": 0.01,
+    "feeRateBps": 10.0,
+    "slippageBps": 2.0,
+    "requireSignalConfirmation": false,
+    "executionMode": "PRICE_TRIGGER_ONLY"
+  },
+  "signal": null,
+  "simulation": {
+    "cashBalance": 100.0,
+    "btcBalance": 0.0,
+    "equity": 100.0,
+    "entryPrice": null,
+    "entryCashValue": 0.0,
+    "realizedPnl": 0.0,
+    "unrealizedPnl": 0.0,
+    "tradeCount": 0,
+    "totalFeesUsd": 0.0,
+    "totalSlippageCostUsd": 0.0,
+    "lastSeenPrice": null
+  },
+  "messages": []
+}
