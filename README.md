@@ -251,6 +251,7 @@ The rule-based scoring system counts bullish and bearish signals from the above 
 | `AGENT_API_PORT` | `8765` | API server port |
 | `AGENT_API_TOKEN` | _(empty)_ | Bearer token required for mutations when configured; mandatory for non-loopback binding |
 | `AGENT_CORS_ORIGIN` | _(empty)_ | Exact browser origin allowed for cross-origin API requests; wildcard origins are not supported |
+| `AGENT_DATA_DIR` | project directory | Directory for runtime state, AP2 mandates, and audit logs; Docker uses `/data` |
 
 If `api.binance.com` is unavailable in your region, use:
 
@@ -353,6 +354,55 @@ npm run dev
 ```
 
 The dev server runs on `http://localhost:3000` and connects to the Python API at `http://127.0.0.1:8765`.
+
+---
+
+## Docker Desktop
+
+The backend and Next.js frontend can run together with Docker Compose. From the project root:
+
+```bash
+docker compose up --build
+```
+
+Then open **http://localhost:3000**. The backend health endpoint is available at **http://localhost:8765/health**.
+
+Docker Desktop will show a `btc-simulation-agent` application containing `backend` and `frontend`. You can stop and start both containers from that application. Runtime state is stored in the named `agent-data` volume and survives ordinary container recreation.
+
+The Compose services bind-mount the local backend and frontend source directories. Therefore, starting the existing containers from Docker Desktop always runs the current files from this project folder instead of an older copy baked into an image. Frontend edits also hot-reload while the container is running. Restart the backend container from Docker Desktop after changing Python code.
+
+If `requirements.txt`, `web/package.json`, `web/package-lock.json`, a Dockerfile, or `compose.yaml` changes, recreate the application once from the project root:
+
+```bash
+docker compose up --build --force-recreate -d
+```
+
+Normal Python, TypeScript, CSS, HTML, and documentation changes do not require an image rebuild.
+
+To configure the containers, create a `.env` file beside `compose.yaml`. For example:
+
+```env
+AGENT_API_TOKEN=replace-with-a-long-random-value
+AP2_SIM_SECRET=replace-with-another-long-random-value
+OPENAI_API_KEY=
+AUTO_SIM_STARTING_CASH=100
+AUTO_SIM_POLL_SECONDS=2
+AUTO_SIM_BUY_COOLDOWN_SECONDS=2
+AUTO_SIM_DROP_TO_BUY_USD=0.01
+AUTO_SIM_RISE_TO_SELL_USD=0.01
+```
+
+Leaving `OPENAI_API_KEY` empty uses the rule-based fallback. The Compose defaults also work without a `.env` file. To stop the application without deleting its saved data:
+
+```bash
+docker compose down
+```
+
+To intentionally delete the saved Docker simulation data as well:
+
+```bash
+docker compose down --volumes
+```
 
 ---
 

@@ -17,8 +17,9 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 
 BASE_DIR = Path(__file__).resolve().parent
-MANDATES_DIR = BASE_DIR / "ap2_mandates"
-LOGS_DIR = BASE_DIR / "ap2_logs"
+DATA_DIR = Path(os.getenv("AGENT_DATA_DIR", str(BASE_DIR))).expanduser()
+MANDATES_DIR = DATA_DIR / "ap2_mandates"
+LOGS_DIR = DATA_DIR / "ap2_logs"
 ACTIVE_INTENT_MANDATE_PATH = MANDATES_DIR / "active_intent_mandate.json"
 AP2_SIMULATION_LOG_PATH = LOGS_DIR / "ap2_simulation_log.jsonl"
 AP2_OPERATIONS_LOG_PATH = LOGS_DIR / "ap2_operations.json"

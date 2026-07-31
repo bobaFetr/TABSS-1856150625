@@ -20,12 +20,13 @@ import btc_agent
 
 
 BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = Path(os.getenv("AGENT_DATA_DIR", str(BASE_DIR))).expanduser()
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 API_VERSION = "2026-07-31-hardened-v3"
 SIMULATION_ONLY = True
 MARKET_DATA_ONLY = True
-AUTO_STATUS_PATH = BASE_DIR / "auto_sim_state.json"
+AUTO_STATUS_PATH = DATA_DIR / "auto_sim_state.json"
 DASHBOARD_PATH = BASE_DIR / "dashboard.html"
 DASHBOARD_CSS_PATH = BASE_DIR / "dashboard.css"
 WEB_PUBLIC_DIR = BASE_DIR / "web" / "public"
