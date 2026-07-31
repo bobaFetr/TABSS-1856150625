@@ -43,6 +43,7 @@ services:
       context: ./web
       dockerfile: Dockerfile
     environment:
+      NODE_ENV: development
       PY_AGENT_API_URL: http://backend:8765
       AGENT_API_TOKEN: ${AGENT_API_TOKEN:-docker-local-token}
       WATCHPACK_POLLING: "true"
