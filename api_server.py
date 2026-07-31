@@ -342,8 +342,6 @@ class AutoSimulationRunner:
             stop_event = self.stop_event
             if config is not None:
                 self.config = config
-            elif simulation_config is None:
-                self.config, self.simulation_config = build_auto_config()
             if simulation_config is not None:
                 self.simulation_config = simulation_config
             self.simulation_state = btc_agent.create_simulation_state(self.simulation_config)

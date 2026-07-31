@@ -269,13 +269,12 @@ __pycache__/
 .env
 !.env.example
 
-# Runtime state and generated logs
-agent_state.json
-auto_sim_state.json
-ap2_mandates/
-ap2_logs/
+# Temporary runtime output
 tmp_out.txt
 tmp_err.txt
+
+# Generated simulated identity private keys must never be committed
+ap2_mandates/ap2_identities.json
 
 # Node / Next.js
 web/node_modules/
@@ -337,7 +336,6 @@ node_modules/
 .next/
 web/.next/
 web/out/
-auto_sim_state.json
 api_server.*.out.log
 api_server.*.err.log
 api_direct.out.log

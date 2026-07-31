@@ -197,5 +197,33 @@ class ApiSecurityUnitTests(unittest.TestCase):
             with self.subTest(query=query), self.assertRaises(ValueError):
                 api_server.build_config(query)
 
+
+class AutoRunnerUnitTests(unittest.TestCase):
+    def test_start_preserves_settings_applied_while_stopped(self) -> None:
+        runner = api_server.AutoSimulationRunner()
+        runner.configure(
+            {
+                "pollSeconds": ["2"],
+                "startingCash": ["100"],
+                "buyCooldownSeconds": ["2"],
+                "dropToBuyUsd": ["0.01"],
+                "riseToSellUsd": ["0.01"],
+            }
+        )
+
+        with (
+            patch("api_server.btc_agent.initialize_ap2_simulation", return_value=(None, [])),
+            patch.object(runner, "_run", return_value=None),
+        ):
+            runner.start()
+            if runner.thread:
+                runner.thread.join(timeout=1)
+
+        self.assertEqual(runner.config.poll_seconds, 2)
+        self.assertEqual(runner.simulation_config.starting_cash, 100.0)
+        self.assertEqual(runner.simulation_config.buy_cooldown_seconds, 2)
+        self.assertEqual(runner.simulation_config.drop_to_buy_usd, 0.01)
+        self.assertEqual(runner.simulation_config.rise_to_sell_usd, 0.01)
+
 if __name__ == "__main__":
     unittest.main()
