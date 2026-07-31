@@ -2,9 +2,9 @@
   "apiVersion": "2026-07-31-hardened-v3",
   "simulationOnly": true,
   "marketDataOnly": true,
-  "running": true,
+  "running": false,
   "startedAtUtc": "2026-07-31T19:20:12+00:00",
-  "lastTickUtc": "2026-07-31T19:23:59+00:00",
+  "lastTickUtc": "2026-07-31T19:25:42+00:00",
   "lastError": null,
   "pollSeconds": 5,
   "rules": {
@@ -23,13 +23,13 @@
     "confidence": 42,
     "symbol": "BTCUSDT",
     "interval": "15m",
-    "price": 63046.6,
-    "rsi": 45.74831983443111,
-    "ema_fast": 63048.404323833674,
-    "ema_mid": 63076.293791162374,
-    "ema_slow": 63431.65664839994,
-    "macd_histogram": 56.08637631550923,
-    "atr": 151.5413335144889,
+    "price": 63022.02,
+    "rsi": 44.72506970500759,
+    "ema_fast": 63043.48832383368,
+    "ema_mid": 63074.05924570783,
+    "ema_slow": 63430.778791257086,
+    "macd_histogram": 54.517738138875245,
+    "atr": 152.0799049430604,
     "stop_loss": null,
     "take_profit": null,
     "bullish_score": 0,
@@ -39,7 +39,7 @@
       "Short-term trend is below medium and long trend.",
       "RSI is fading inside a weak momentum zone."
     ],
-    "timestamp_utc": "2026-07-31T19:23:59+00:00",
+    "timestamp_utc": "2026-07-31T19:25:42+00:00",
     "position_after_signal": "FLAT"
   },
   "simulation": {
@@ -53,7 +53,7 @@
     "tradeCount": 0,
     "totalFeesUsd": 0.0,
     "totalSlippageCostUsd": 0.0,
-    "lastSeenPrice": 63046.6
+    "lastSeenPrice": 63022.02
   },
   "messages": []
 }
