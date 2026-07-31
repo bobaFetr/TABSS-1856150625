@@ -20,6 +20,10 @@
 - [x] Ensure dashboard/API copy consistently says simulation-only.
 
 ## API and Runtime Reliability
+- [x] Require POST for mutations and optional bearer authentication on local deployments.
+- [x] Refuse non-loopback binding unless `AGENT_API_TOKEN` is configured.
+- [x] Remove wildcard CORS, bound request bodies, and sanitize internal errors.
+- [x] Serialize signal cycles and atomically replace state snapshots.
 - [x] Add tests for `/health`, `/auto/status`, `/auto/configure`, `/state`, and `/ap2`.
 - [x] Add validation tests for invalid query params on `/auto/configure`.
 - [x] Keep Binance failures non-fatal by preserving retry/fallback behavior.
@@ -49,6 +53,7 @@
 - [x] Run API smoke tests against a local server.
 - [x] Run `npm run build` in `web/`.
 - [x] Verify no secrets or generated cache files remain tracked by git.
+- [x] Add a reproducible Python dependency manifest.
 
 ## References
 - OpenAI API docs: https://developers.openai.com/api/docs/quickstart

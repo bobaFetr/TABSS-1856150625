@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -12,6 +14,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import ap2_sim
 
@@ -21,6 +24,8 @@ UPDATE_OPTIONS = {
     "2": ("10 seconds", 10),
     "3": ("1 minute", 60),
 }
+
+_STATE_LOCK = threading.RLock()
 
 
 def load_local_env(path: Path) -> None:
@@ -43,10 +48,10 @@ def load_local_env(path: Path) -> None:
         if key and key not in os.environ:
             os.environ[key] = value
 
+# Only the untracked runtime file may provide credentials. The committed
+# .env.example is documentation and must never be treated as a secret source.
 env_path = Path(__file__).with_name(".env")
 load_local_env(env_path)
-if "OPENAI_API_KEY" not in os.environ:
-    load_local_env(Path(__file__).with_name(".env.example"))
 
 
 def env_str(name: str, default: str) -> str:
@@ -406,7 +411,14 @@ def load_state(path: Path) -> AgentState:
 
 
 def save_state(path: Path, state: AgentState) -> None:
-    path.write_text(json.dumps(asdict(state), indent=2), encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        temporary_path.write_text(json.dumps(asdict(state), indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary_path, path)
+    finally:
+        with contextlib.suppress(OSError):
+            temporary_path.unlink()
 
 
 def ema(values: list[float], period: int) -> list[float]:
@@ -1211,7 +1223,7 @@ def build_parser(defaults: AgentConfig, include_once: bool = True) -> argparse.A
     return parser
 
 
-def run_cycle(config: AgentConfig) -> SignalResult:
+def _run_cycle_unlocked(config: AgentConfig) -> SignalResult:
     binance_client = BinanceClient(base_url=config.base_url, timeout=config.request_timeout)
     state_path = Path(config.state_file)
     state = load_state(state_path)
@@ -1270,6 +1282,14 @@ def run_cycle(config: AgentConfig) -> SignalResult:
         ),
     )
     return result
+
+
+def run_cycle(config: AgentConfig) -> SignalResult:
+    # A cycle is a read-modify-write transaction over the shared state file.
+    # Serializing the full operation prevents concurrent API/background cycles
+    # from losing updates even though upstream requests happen between reads.
+    with _STATE_LOCK:
+        return _run_cycle_unlocked(config)
 
 
 def run_cycle_with_retries(

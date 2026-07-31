@@ -111,6 +111,19 @@ function time(v){ return v ? new Intl.DateTimeFormat("en-US",{hour:"2-digit",min
 function tone(signal){ return signal === "BUY" ? "buy" : signal === "SELL" ? "sell" : "hold"; }
 function setText(id, value){ $(id).textContent = value; }
 async function getJson(path){ const r = await fetch(path, {cache:"no-store"}); const j = await r.json(); if(!r.ok || !j.ok) throw new Error(j.error || "Request failed"); return j; }
+async function postJson(path, body={}){
+  const send = (token) => fetch(path, {method:"POST", headers:{"Content-Type":"application/json", ...(token ? {"Authorization":`Bearer ${token}`} : {})}, body:JSON.stringify(body), cache:"no-store"});
+  let token = sessionStorage.getItem("agentApiToken") || "";
+  let r = await send(token);
+  if (r.status === 401) {
+    sessionStorage.removeItem("agentApiToken");
+    token = window.prompt("This API requires AGENT_API_TOKEN. Enter it for this browser tab:") || "";
+    if (token) { sessionStorage.setItem("agentApiToken", token); r = await send(token); }
+  }
+  const j = await r.json();
+  if(!r.ok || !j.ok) throw new Error(j.error || "Request failed");
+  return j;
+}
 function syncInputs(auto){
   if (touched || !auto) return;
   $("startingCash").value = auto.rules.startingCash;
@@ -164,9 +177,9 @@ async function refresh(){
     $("alert").style.display = "block";
   }
 }
-$("toggle").onclick = async () => { const running = $("toggle").textContent === "Pause"; await getJson(running ? "/auto/stop" : "/auto/start"); await refresh(); };
+$("toggle").onclick = async () => { const running = $("toggle").textContent === "Pause"; await postJson(running ? "/auto/stop" : "/auto/start"); await refresh(); };
 $("refresh").onclick = refresh;
-$("settings").onsubmit = async (e) => { e.preventDefault(); const p = new URLSearchParams(); inputIds.forEach(id => p.set(id, $(id).value)); await getJson("/auto/configure?" + p.toString()); touched = false; await refresh(); };
+$("settings").onsubmit = async (e) => { e.preventDefault(); const p = new URLSearchParams(); inputIds.forEach(id => p.set(id, $(id).value)); await postJson("/auto/configure?" + p.toString()); touched = false; await refresh(); };
 refresh(); setInterval(refresh, 2000);
 </script>
 </body>

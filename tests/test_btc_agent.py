@@ -9,6 +9,9 @@ from unittest.mock import patch
 import btc_agent
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
 class FakeResponse:
     def __init__(self, payload: dict[str, object] | str) -> None:
         self.body = payload if isinstance(payload, str) else json.dumps(payload)
@@ -158,6 +161,33 @@ class RuntimeFallbackTests(unittest.TestCase):
         self.assertIs(result, last_result)
         self.assertIsNotNone(warning)
         self.assertTrue(warning.startswith("STALE |"))
+
+
+class SecretSafetyTests(unittest.TestCase):
+    def test_example_env_contains_placeholder_not_openai_secret(self) -> None:
+        example = (PROJECT_ROOT / ".env.example").read_text(encoding="utf-8")
+
+        self.assertIn("OPENAI_API_KEY=your_api_key_here", example)
+        self.assertNotIn("sk-proj-", example)
+
+    def test_source_does_not_load_example_env(self) -> None:
+        source = (PROJECT_ROOT / "btc_agent.py").read_text(encoding="utf-8")
+
+        self.assertNotIn('load_local_env(Path(__file__).with_name(".env.example"))', source)
+
+
+class StatePersistenceTests(unittest.TestCase):
+    def test_save_state_atomically_replaces_file_without_temp_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            state_path = Path(temp_dir) / "nested" / "agent_state.json"
+            expected = btc_agent.AgentState(last_signal="BUY", last_confidence=77)
+
+            btc_agent.save_state(state_path, expected)
+            loaded = btc_agent.load_state(state_path)
+
+            self.assertEqual(loaded.last_signal, "BUY")
+            self.assertEqual(loaded.last_confidence, 77)
+            self.assertEqual(list(state_path.parent.glob("*.tmp")), [])
 
 
 if __name__ == "__main__":

@@ -67,7 +67,7 @@ function Test-AgentApiCurrent {
 
     try {
         $response = Invoke-RestMethod -Uri $Url -TimeoutSec 2
-        return $response.ok -eq $true -and $response.auto.apiVersion -eq "2026-04-26-auto-runner-v2"
+        return $response.ok -eq $true -and $response.auto.apiVersion -eq "2026-07-31-hardened-v3"
     }
     catch {
         return $false

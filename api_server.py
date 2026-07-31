@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import contextlib
+import hmac
 import json
+import os
+import sys
 import threading
 import time
 from dataclasses import asdict
@@ -9,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 import ap2_sim
 import btc_agent
@@ -17,7 +22,7 @@ import btc_agent
 BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
-API_VERSION = "2026-04-26-auto-runner-v2"
+API_VERSION = "2026-07-31-hardened-v3"
 SIMULATION_ONLY = True
 MARKET_DATA_ONLY = True
 AUTO_STATUS_PATH = BASE_DIR / "auto_sim_state.json"
@@ -25,6 +30,38 @@ DASHBOARD_PATH = BASE_DIR / "dashboard.html"
 DASHBOARD_CSS_PATH = BASE_DIR / "dashboard.css"
 WEB_PUBLIC_DIR = BASE_DIR / "web" / "public"
 WEB_APP_DIR = BASE_DIR / "web" / "app"
+MAX_REQUEST_BODY_BYTES = 64 * 1024
+MUTATING_PATHS = {
+    "/signal",
+    "/auto/start",
+    "/auto/stop",
+    "/auto/configure",
+    "/ap2/checkout/demo",
+    "/ap2/checkout/run",
+}
+
+
+def api_token() -> str:
+    return btc_agent.env_str("AGENT_API_TOKEN", "")
+
+
+def configured_cors_origin() -> str:
+    return btc_agent.env_str("AGENT_CORS_ORIGIN", "")
+
+
+def is_loopback_host(host: str) -> bool:
+    return host.strip().lower() in {"127.0.0.1", "localhost", "::1"}
+
+
+def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        temporary_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary_path, path)
+    finally:
+        with contextlib.suppress(OSError):
+            temporary_path.unlink()
 
 
 def read_json_file(path: Path, fallback: Any) -> Any:
@@ -114,15 +151,28 @@ def build_config(query: dict[str, list[str]]) -> btc_agent.AgentConfig:
         values = query.get(name)
         return values[0] if values and values[0] else default
 
-    args.symbol = get_string("symbol", defaults.symbol).upper()
-    args.interval = get_string("interval", defaults.interval)
-    args.lookback = int(get_string("lookback", str(defaults.lookback)))
-    args.poll_seconds = int(get_string("pollSeconds", str(defaults.poll_seconds)))
-    args.base_url = get_string("baseUrl", defaults.base_url)
-    args.request_timeout = float(get_string("requestTimeout", str(defaults.request_timeout)))
-    args.buy_threshold = int(get_string("buyThreshold", str(defaults.buy_threshold)))
-    args.sell_threshold = int(get_string("sellThreshold", str(defaults.sell_threshold)))
-    args.state_file = get_string("stateFile", defaults.state_file)
+    symbol = get_string("symbol", defaults.symbol).upper()
+    if not symbol.isalnum() or not 5 <= len(symbol) <= 20:
+        raise ValueError("symbol must be 5-20 letters or numbers.")
+    interval = get_string("interval", defaults.interval)
+    allowed_intervals = {
+        "1s", "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h",
+        "6h", "8h", "12h", "1d", "3d", "1w", "1M",
+    }
+    if interval not in allowed_intervals:
+        raise ValueError("interval is not supported by Binance.")
+
+    args.symbol = symbol
+    args.interval = interval
+    args.lookback = query_int(query, "lookback", defaults.lookback, 60, 1000)
+    args.poll_seconds = query_int(query, "pollSeconds", defaults.poll_seconds, 1, 3600)
+    args.request_timeout = query_float(query, "requestTimeout", defaults.request_timeout, 1.0, 60.0)
+    args.buy_threshold = query_int(query, "buyThreshold", defaults.buy_threshold, 1, 20)
+    args.sell_threshold = query_int(query, "sellThreshold", defaults.sell_threshold, 1, 20)
+    # Network destinations and filesystem paths are environment/operator
+    # configuration, never caller-controlled API parameters.
+    args.base_url = defaults.base_url
+    args.state_file = defaults.state_file
     return btc_agent.config_from_args(args)
 
 
@@ -257,7 +307,7 @@ def simulation_state_to_dict(state: btc_agent.SimulationState | None, current_pr
 
 def save_auto_status(payload: dict[str, Any]) -> None:
     try:
-        AUTO_STATUS_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        atomic_write_json(AUTO_STATUS_PATH, payload)
     except OSError:
         return
 
@@ -437,9 +487,13 @@ class AgentApiHandler(BaseHTTPRequestHandler):
         return
 
     def end_headers(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        allowed_origin = configured_cors_origin()
+        request_origin = self.headers.get("Origin", "")
+        if allowed_origin and hmac.compare_digest(request_origin, allowed_origin):
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
         super().end_headers()
 
     def do_OPTIONS(self) -> None:
@@ -451,6 +505,13 @@ class AgentApiHandler(BaseHTTPRequestHandler):
         query = parse_qs(parsed_url.query)
 
         try:
+            if parsed_url.path in MUTATING_PATHS:
+                self.send_json(
+                    {"ok": False, "error": "Method not allowed; use POST."},
+                    status=405,
+                    extra_headers={"Allow": "POST"},
+                )
+                return
             if parsed_url.path in {"/", "/dashboard"}:
                 self.send_dashboard()
                 return
@@ -474,23 +535,8 @@ class AgentApiHandler(BaseHTTPRequestHandler):
                     }
                 )
                 return
-            if parsed_url.path == "/auto/start":
-                AUTO_RUNNER.start()
-                self.send_json({"ok": True, "auto": AUTO_RUNNER.status()})
-                return
-            if parsed_url.path == "/auto/stop":
-                AUTO_RUNNER.stop()
-                self.send_json({"ok": True, "auto": AUTO_RUNNER.status()})
-                return
-            if parsed_url.path == "/auto/configure":
-                self.send_json({"ok": True, "auto": AUTO_RUNNER.configure(query)})
-                return
             if parsed_url.path == "/auto/status":
                 self.send_json({"ok": True, "auto": AUTO_RUNNER.status()})
-                return
-            if parsed_url.path == "/signal":
-                result = btc_agent.run_cycle(build_config(query))
-                self.send_json({"ok": True, "signal": asdict(result)})
                 return
             if parsed_url.path == "/state":
                 state_path = BASE_DIR / btc_agent.AgentConfig().state_file
@@ -510,35 +556,107 @@ class AgentApiHandler(BaseHTTPRequestHandler):
                     }
                 )
                 return
-            if parsed_url.path == "/ap2/checkout/demo":
-                self.send_json({"ok": True, "checkout": ap2_sim.run_default_payment_chain_simulation()})
-                return
-
             self.send_json({"ok": False, "error": "Not found"}, status=404)
         except ValueError as exc:
             self.send_json({"ok": False, "error": str(exc)}, status=400)
         except Exception as exc:  # noqa: BLE001
-            self.send_json({"ok": False, "error": str(exc)}, status=500)
+            self.send_internal_error(exc)
 
     def do_POST(self) -> None:
         parsed_url = urlparse(self.path)
+        query = parse_qs(parsed_url.query)
 
         try:
-            content_length = int(self.headers.get("Content-Length", "0"))
+            if parsed_url.path not in MUTATING_PATHS:
+                self.send_json({"ok": False, "error": "Not found"}, status=404)
+                return
+            if not self.has_json_content_type():
+                self.send_json(
+                    {"ok": False, "error": "Content-Type must be application/json."},
+                    status=415,
+                )
+                return
+            if not self.is_authorized():
+                self.send_json(
+                    {"ok": False, "error": "Unauthorized."},
+                    status=401,
+                    extra_headers={"WWW-Authenticate": "Bearer"},
+                )
+                return
+
+            content_length = self.request_content_length()
             raw_body = self.rfile.read(content_length).decode("utf-8") if content_length else "{}"
             payload = json.loads(raw_body)
             if not isinstance(payload, dict):
                 raise ValueError("Request body must be a JSON object.")
 
+            if parsed_url.path == "/signal":
+                result = btc_agent.run_cycle(build_config(query))
+                self.send_json({"ok": True, "signal": asdict(result)})
+                return
+            if parsed_url.path == "/auto/start":
+                AUTO_RUNNER.start()
+                self.send_json({"ok": True, "auto": AUTO_RUNNER.status()})
+                return
+            if parsed_url.path == "/auto/stop":
+                AUTO_RUNNER.stop()
+                self.send_json({"ok": True, "auto": AUTO_RUNNER.status()})
+                return
+            if parsed_url.path == "/auto/configure":
+                self.send_json({"ok": True, "auto": AUTO_RUNNER.configure(query)})
+                return
+            if parsed_url.path == "/ap2/checkout/demo":
+                self.send_json({"ok": True, "checkout": ap2_sim.run_default_payment_chain_simulation()})
+                return
             if parsed_url.path == "/ap2/checkout/run":
                 self.send_json({"ok": True, "checkout": run_checkout_payload(payload)})
                 return
 
             self.send_json({"ok": False, "error": "Not found"}, status=404)
+        except RequestHandled:
+            return
         except (json.JSONDecodeError, ValueError) as exc:
             self.send_json({"ok": False, "error": str(exc)}, status=400)
         except Exception as exc:  # noqa: BLE001
-            self.send_json({"ok": False, "error": str(exc)}, status=500)
+            self.send_internal_error(exc)
+
+    def request_content_length(self) -> int:
+        raw_length = self.headers.get("Content-Length", "0")
+        try:
+            content_length = int(raw_length)
+        except ValueError as exc:
+            raise ValueError("Content-Length must be a whole number.") from exc
+        if content_length < 0:
+            raise ValueError("Content-Length cannot be negative.")
+        if content_length > MAX_REQUEST_BODY_BYTES:
+            self.send_json({"ok": False, "error": "Request body is too large."}, status=413)
+            raise RequestHandled()
+        return content_length
+
+    def has_json_content_type(self) -> bool:
+        content_type = self.headers.get("Content-Type", "")
+        media_type = content_type.partition(";")[0].strip().lower()
+        return media_type == "application/json"
+
+    def is_authorized(self) -> bool:
+        expected_token = api_token()
+        if not expected_token:
+            return True
+        authorization = self.headers.get("Authorization", "")
+        scheme, separator, supplied_token = authorization.partition(" ")
+        return bool(
+            separator
+            and scheme.lower() == "bearer"
+            and hmac.compare_digest(supplied_token.strip(), expected_token)
+        )
+
+    def send_internal_error(self, exc: Exception) -> None:
+        error_id = uuid4().hex[:12]
+        print(f"API error {error_id}: {type(exc).__name__}: {exc}", file=sys.stderr)
+        self.send_json(
+            {"ok": False, "error": "Internal server error.", "errorId": error_id},
+            status=500,
+        )
 
     def send_dashboard(self) -> None:
         try:
@@ -566,18 +684,32 @@ class AgentApiHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def send_json(self, payload: dict[str, Any], status: int = 200) -> None:
+    def send_json(
+        self,
+        payload: dict[str, Any],
+        status: int = 200,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         body = json.dumps(payload, ensure_ascii=True).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
+
+
+class RequestHandled(Exception):
+    """Stops request processing after a response has already been sent."""
 
 
 def main() -> int:
     host = btc_agent.env_str("AGENT_API_HOST", DEFAULT_HOST)
     port = btc_agent.env_int("AGENT_API_PORT", DEFAULT_PORT)
+    if not is_loopback_host(host) and not api_token():
+        print("Refusing non-loopback API binding without AGENT_API_TOKEN.", file=sys.stderr)
+        return 2
     if env_bool("AUTO_SIM_ENABLED", True):
         AUTO_RUNNER.start()
     server = ThreadingHTTPServer((host, port), AgentApiHandler)

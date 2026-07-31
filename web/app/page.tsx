@@ -18,7 +18,8 @@ import {
   Wallet
 } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 
 type Signal = {
   signal: string;
@@ -252,17 +253,23 @@ export default function Home() {
     });
   }, [auto?.lastTickUtc, btcPrice, signal?.timestamp_utc]);
 
-  async function loadDashboard(
+  const loadDashboard = useCallback(async (
     action: "auto" | "state" | "signal" | "start-auto" | "stop-auto" | "configure-auto" = "auto",
     params?: URLSearchParams
-  ) {
+  ) => {
     setLoading(true);
     setError(null);
     if (action === "signal") setRunningSignal(true);
 
     try {
+      const mutatingAction = ["signal", "start-auto", "stop-auto", "configure-auto"].includes(action);
       const [stateResponse, ap2Response] = await Promise.all([
-        fetch(`/api/agent?action=${action}${params ? `&${params.toString()}` : ""}`, { cache: "no-store" }),
+        fetch(`/api/agent?action=${action}${params ? `&${params.toString()}` : ""}`, {
+          method: mutatingAction ? "POST" : "GET",
+          headers: mutatingAction ? { "Content-Type": "application/json" } : undefined,
+          body: mutatingAction ? "{}" : undefined,
+          cache: "no-store"
+        }),
         fetch("/api/agent?action=ap2", { cache: "no-store" })
       ]);
 
@@ -294,13 +301,13 @@ export default function Home() {
       setLoading(false);
       setRunningSignal(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadDashboard();
     const timer = window.setInterval(() => loadDashboard(), 2000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [loadDashboard]);
 
   useEffect(() => {
     if (!auto || settingsTouched) return;
@@ -333,7 +340,12 @@ export default function Home() {
     setCheckoutLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/agent?action=checkout-demo", { cache: "no-store" });
+      const response = await fetch("/api/agent?action=checkout-demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        cache: "no-store"
+      });
       const payload = await response.json();
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error ?? "Checkout demo failed.");
@@ -388,18 +400,18 @@ export default function Home() {
     <main className="shell">
       <section className="commandBar">
         <div className="brandLockup">
-          <img className="brandLogo" src="/logo.png" alt="BTC Signal Agent logo" />
+          <Image className="brandLogo" src="/logo.png" alt="BTC Signal Agent logo" width={64} height={64} priority />
           <div>
             <p className="eyebrow">BTCUSDT simulated execution desk</p>
             <h1>Signal Agent</h1>
           </div>
         </div>
         <div className="actions">
-          <button className="button secondary" onClick={() => loadDashboard(auto?.running ? "stop-auto" : "start-auto")} disabled={loading}>
+          <button type="button" className="button secondary" onClick={() => loadDashboard(auto?.running ? "stop-auto" : "start-auto")} disabled={loading}>
             {auto?.running ? <Pause size={16} /> : <Play size={16} />}
             {auto?.running ? "Pause" : "Start"}
           </button>
-          <button className="button primary" onClick={() => loadDashboard("signal")} disabled={loading}>
+          <button type="button" className="button primary" onClick={() => loadDashboard("signal")} disabled={loading}>
             <RefreshCw size={16} className={runningSignal ? "spin" : ""} />
             Refresh
           </button>
@@ -666,8 +678,8 @@ export default function Home() {
           </div>
           <div className="auditList">
             {auditEvents.length ? (
-              auditEvents.slice().reverse().slice(0, 8).map((event, index) => (
-                <div className="auditRow" key={`${event.payloadHash}-${index}`}>
+              auditEvents.slice().reverse().slice(0, 8).map((event) => (
+                <div className="auditRow" key={`${event.payloadHash ?? "event"}-${event.createdAt ?? event.eventType ?? "unknown"}`}>
                   <FileCheck2 size={16} />
                   <div>
                     <strong>{event.eventType ?? "Audit event"}</strong>

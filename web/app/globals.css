@@ -480,11 +480,11 @@ h2 {
   grid-column: span 3;
 }
 
-.checkField {
-  display: flex !important;
+.checkoutForm label.checkField {
+  display: flex;
   min-height: 38px;
   align-items: center;
-  gap: 8px !important;
+  gap: 8px;
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 7px;

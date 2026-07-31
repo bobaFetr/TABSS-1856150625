@@ -33,15 +33,19 @@ python-ai-agent-buy-sell/
 ## Requirements
 
 - Python 3.11 or later
-- `cryptography` for the ECDSA mandate-signing simulation
-- An [OpenAI API key](https://platform.openai.com/account/api-keys)
+- `cryptography` for the ECDSA mandate-signing simulation (installed from `requirements.txt`)
+- An optional [OpenAI API key](https://platform.openai.com/account/api-keys); without one, the rule-based fallback is used
 - Internet access to reach `api.binance.com`
 
 ---
 
 ## First-Time Setup
 
-1. Create a `.env` file in the project root (copy from `.env.example`). Keep real API keys in local environment variables or `.env`; never commit them:
+1. Install the Python dependency and create a `.env` file in the project root (copy from `.env.example`). Keep real API keys in local environment variables or `.env`; never commit them:
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 ```env
 OPENAI_API_KEY=your_api_key_here
@@ -149,13 +153,19 @@ Binance endpoints used by this app:
 |----------|-------------|
 | `GET /` or `/dashboard` | Serves `dashboard.html` |
 | `GET /health` | Returns `{"ok": true}` with API version |
-| `GET /signal` | Runs one agent cycle and returns the signal result |
+| `POST /signal` | Runs one agent cycle and returns the signal result |
 | `GET /state` | Returns the current `agent_state.json` contents |
-| `GET /auto/start` | Starts the background auto-simulation runner |
-| `GET /auto/stop` | Stops the auto-simulation runner |
+| `POST /auto/start` | Starts the background auto-simulation runner |
+| `POST /auto/stop` | Stops the auto-simulation runner |
 | `GET /auto/status` | Returns current simulation state and last signal |
-| `GET /auto/configure` | Reconfigures and restarts the runner with query params |
+| `POST /auto/configure` | Reconfigures and restarts the runner with query params |
 | `GET /ap2` | Returns the active simulated mandate, audit log entries, and simulation-only protocol metadata |
+| `POST /ap2/checkout/demo` | Runs the built-in simulated checkout chain |
+| `POST /ap2/checkout/run` | Validates a supplied simulated checkout chain |
+
+All state-changing routes are POST-only and require `Content-Type: application/json`. The API binds to loopback by default. Set `AGENT_API_TOKEN` to require `Authorization: Bearer <token>` on state-changing requests. A non-loopback `AGENT_API_HOST` is refused unless this token is configured. Cross-origin access is disabled unless one exact `AGENT_CORS_ORIGIN` is configured. The standalone dashboard asks for the token on the first protected action and keeps it only for the current browser tab; the Next.js proxy reads it server-side from the environment.
+
+The `/signal` query may tune the symbol, interval, lookback, polling/timeout values, and scoring thresholds within validated bounds. Network destinations and state-file paths cannot be supplied through the API; configure `BINANCE_BASE_URL` and `STATE_FILE` in the trusted process environment instead.
 
 ### ECDSA shopping mandate demo
 
@@ -206,7 +216,7 @@ The rule-based scoring system counts bullish and bearish signals from the above 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENAI_API_KEY` | _(required)_ | OpenAI API key |
+| `OPENAI_API_KEY` | _(optional)_ | OpenAI API key; omit it to use rule-based signals |
 | `OPENAI_MODEL` | `gpt-4.1-nano` | OpenAI model to use |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1/responses` | OpenAI endpoint |
 | `OPENAI_TIMEOUT` | `20` | Request timeout in seconds |
@@ -231,6 +241,8 @@ The rule-based scoring system counts bullish and bearish signals from the above 
 | `AUTO_SIM_RISE_TO_SELL_USD` | `1.0` | Sell trigger for auto simulation |
 | `AGENT_API_HOST` | `127.0.0.1` | API server bind address |
 | `AGENT_API_PORT` | `8765` | API server port |
+| `AGENT_API_TOKEN` | _(empty)_ | Bearer token required for mutations when configured; mandatory for non-loopback binding |
+| `AGENT_CORS_ORIGIN` | _(empty)_ | Exact browser origin allowed for cross-origin API requests; wildcard origins are not supported |
 
 If `api.binance.com` is unavailable in your region, use:
 

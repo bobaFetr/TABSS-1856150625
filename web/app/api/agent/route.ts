@@ -3,9 +3,18 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 const agentApiUrl = process.env.PY_AGENT_API_URL ?? "http://127.0.0.1:8765";
+const agentApiToken = process.env.AGENT_API_TOKEN;
+
+function agentHeaders(includeContentType = false) {
+  return {
+    ...(includeContentType ? { "Content-Type": "application/json" } : {}),
+    ...(agentApiToken ? { Authorization: `Bearer ${agentApiToken}` } : {})
+  };
+}
 
 async function readAgent(path: string) {
   const response = await fetch(`${agentApiUrl}${path}`, {
+    headers: agentHeaders(),
     cache: "no-store"
   });
   const payload = await response.json().catch(() => null);
@@ -26,9 +35,7 @@ async function readAgent(path: string) {
 async function writeAgent(path: string, body: unknown) {
   const response = await fetch(`${agentApiUrl}${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: agentHeaders(true),
     body: JSON.stringify(body),
     cache: "no-store"
   });
@@ -51,33 +58,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action") ?? "state";
 
-  if (action === "signal") {
-    return readAgent(`/signal?${url.searchParams.toString()}`);
-  }
-
   if (action === "auto") {
     return readAgent("/auto/status");
   }
 
-  if (action === "start-auto") {
-    return readAgent("/auto/start");
-  }
-
-  if (action === "stop-auto") {
-    return readAgent("/auto/stop");
-  }
-
-  if (action === "configure-auto") {
-    url.searchParams.delete("action");
-    return readAgent(`/auto/configure?${url.searchParams.toString()}`);
-  }
-
   if (action === "ap2") {
     return readAgent("/ap2?limit=12");
-  }
-
-  if (action === "checkout-demo") {
-    return readAgent("/ap2/checkout/demo");
   }
 
   if (action === "health") {
@@ -90,6 +76,28 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action") ?? "";
+
+  if (action === "signal") {
+    url.searchParams.delete("action");
+    return writeAgent(`/signal?${url.searchParams.toString()}`, {});
+  }
+
+  if (action === "start-auto") {
+    return writeAgent("/auto/start", {});
+  }
+
+  if (action === "stop-auto") {
+    return writeAgent("/auto/stop", {});
+  }
+
+  if (action === "configure-auto") {
+    url.searchParams.delete("action");
+    return writeAgent(`/auto/configure?${url.searchParams.toString()}`, {});
+  }
+
+  if (action === "checkout-demo") {
+    return writeAgent("/ap2/checkout/demo", {});
+  }
 
   if (action === "checkout-run") {
     return writeAgent("/ap2/checkout/run", await request.json());
