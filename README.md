@@ -1,6 +1,6 @@
 # BTC Binance Signal Agent
 
-A Python-based trading signal agent that watches `BTCUSDT` on Binance in real time, computes technical indicators (RSI, EMA, MACD, ATR), and queries OpenAI for a `BUY`, `SELL`, or `HOLD` recommendation. Includes a built-in web dashboard, a local JSON API, an auto-simulation mode, and an AP2-inspired mandate audit trail.
+A Python-based trading signal agent that watches a Binance pair (`BTCUSDT` by default) in real time, computes technical indicators (RSI, EMA, MACD, ATR), and optionally queries OpenAI for a `BUY`, `SELL`, or `HOLD` recommendation. Includes a built-in web dashboard, a local JSON API, an auto-simulation mode, and an AP2-inspired mandate audit trail.
 
 > **This is a simulation only. No real orders are placed and no real money moves. Binance is used only for public market data.**
 
@@ -9,16 +9,16 @@ A Python-based trading signal agent that watches `BTCUSDT` on Binance in real ti
 ## Project Structure
 
 ```
-python-ai-agent-buy-sell/
+TABSS-1856150625/
 ├── btc_agent.py            # Core agent: market data, indicators, OpenAI signal, simulation engine
 ├── api_server.py           # Local HTTP API (port 8765) + dashboard server
 ├── ap2_sim.py              # AP2-inspired mandate creation, signing, and audit logging
 ├── dashboard.html          # Standalone web dashboard (served by api_server.py)
 ├── web/                    # Next.js dashboard (optional development UI)
-├── agent_state.json        # Runtime state, generated locally and ignored by git
-├── auto_sim_state.json     # Runtime auto-simulation snapshot, ignored by git
-├── ap2_mandates/           # Runtime simulated mandate JSON, ignored by git
-├── ap2_logs/               # Runtime AP2-inspired audit logs, ignored by git
+├── agent_state.json        # Runtime signal/position snapshot
+├── auto_sim_state.json     # Runtime auto-simulation snapshot
+├── ap2_mandates/           # Runtime simulated mandate JSON
+├── ap2_logs/               # Runtime AP2-inspired audit logs
 ├── .env                    # Your local secrets, ignored by git
 ├── .env.example            # Example environment variable template
 ├── START_DASHBOARD.cmd     # One-click dashboard launcher (Windows)
@@ -35,7 +35,7 @@ python-ai-agent-buy-sell/
 - Python 3.11 or later
 - `cryptography` for the ECDSA mandate-signing simulation (installed from `requirements.txt`)
 - An optional [OpenAI API key](https://platform.openai.com/account/api-keys); without one, the rule-based fallback is used
-- Internet access to reach `api.binance.com`
+- Internet access to reach the configured Binance endpoint and, when enabled, the OpenAI API
 
 ---
 
@@ -47,6 +47,8 @@ python-ai-agent-buy-sell/
 python -m pip install -r requirements.txt
 ```
 
+On systems where Python 3 is exposed as `python3` rather than `python`, use `python3` in the commands throughout this README.
+
 ```env
 OPENAI_API_KEY=your_api_key_here
 OPENAI_MODEL=gpt-4.1-nano
@@ -56,7 +58,7 @@ BINANCE_LOOKBACK=250
 OPENAI_TIMEOUT=20
 ```
 
-2. If no `.env` is found, the PowerShell launcher will prompt you for your key and save it automatically.
+2. The console launcher (`start_web_app.ps1`, also invoked by `start_web_app.bat`) prompts for an OpenAI key and saves it when neither the environment nor `.env` provides one. The Python agent, API server, dashboards, and Docker setup can run without a key by using the rule-based fallback.
 
 3. If this project is hosted on GitHub, enable secret scanning for the repository. If a real key was ever committed, rotate it in the provider dashboard before continuing.
 
@@ -110,7 +112,7 @@ python btc_agent.py --once
 
 The dashboard is the easiest way to monitor and control the simulation.
 
-**Start the dashboard:**
+**Start the standalone Python dashboard (no Node.js required):**
 
 ```cmd
 START_DASHBOARD.cmd
@@ -120,7 +122,15 @@ Then open **http://127.0.0.1:8765** in your browser.
 
 The dashboard is served directly by `api_server.py` from `dashboard.html` — no Node.js or `npm` is needed at runtime.
 
-**With custom ports (PowerShell):**
+**Start the richer Next.js dashboard plus the Python API:**
+
+```cmd
+start_dashboard.bat
+```
+
+The Next.js dashboard opens at **http://127.0.0.1:3000** and proxies requests to the Python API at port `8765`. The launcher installs frontend dependencies when `web/node_modules` is missing.
+
+**Use custom API and Next.js ports (PowerShell):**
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start_dashboard.ps1 -ApiPort 8765 -WebPort 3000
@@ -138,7 +148,7 @@ powershell -ExecutionPolicy Bypass -File .\start_dashboard.ps1 -ApiPort 8765 -We
 | Simulated fee | 10 bps (0.10%) | 0 – 1000 bps |
 | Simulated slippage | 2 bps (0.02%) | 0 – 1000 bps |
 
-Press **Apply** on the dashboard to restart the simulation with new values.
+Press **Apply** to save new values. If the simulation is running, it restarts with a fresh simulated balance and the new settings. If it is stopped, the settings are saved and take effect when **Start** is pressed.
 
 ---
 
@@ -160,14 +170,14 @@ Binance endpoints used by this app:
 | `POST /auto/start` | Starts the background auto-simulation runner |
 | `POST /auto/stop` | Stops the auto-simulation runner |
 | `GET /auto/status` | Returns current simulation state and last signal |
-| `POST /auto/configure` | Reconfigures and restarts the runner with query params |
+| `POST /auto/configure` | Saves query-param settings; restarts the runner only when it is already running |
 | `GET /ap2` | Returns the active simulated mandate, audit log entries, and simulation-only protocol metadata |
 | `POST /ap2/checkout/demo` | Runs the built-in simulated checkout chain |
-| `POST /ap2/checkout/run` | Validates a supplied simulated checkout chain |
+| `POST /ap2/checkout/run` | Creates and validates a custom simulated checkout scenario from the supplied JSON inputs |
 
 All state-changing routes are POST-only and require `Content-Type: application/json`. The API binds to loopback by default. Set `AGENT_API_TOKEN` to require `Authorization: Bearer <token>` on state-changing requests. A non-loopback `AGENT_API_HOST` is refused unless this token is configured. Cross-origin access is disabled unless one exact `AGENT_CORS_ORIGIN` is configured. The standalone dashboard asks for the token on the first protected action and keeps it only for the current browser tab; the Next.js proxy reads it server-side from the environment.
 
-The `/signal` query may tune the symbol, interval, lookback, polling/timeout values, and scoring thresholds within validated bounds. Network destinations and state-file paths cannot be supplied through the API; configure `BINANCE_BASE_URL` and `STATE_FILE` in the trusted process environment instead.
+The `/signal` query accepts validated `symbol`, `interval`, `lookback`, `requestTimeout`, `buyThreshold`, and `sellThreshold` values. It also accepts `pollSeconds` for configuration compatibility, although polling has no practical effect on this one-cycle endpoint. Network destinations and state-file paths cannot be supplied through the API; configure `BINANCE_BASE_URL` and `STATE_FILE` in the trusted process environment instead.
 
 ### ECDSA shopping mandate demo
 
@@ -213,7 +223,7 @@ All indicators are computed in pure Python from Binance kline data with no exter
 | MACD | Fast 12 / Slow 26 / Signal 9 |
 | ATR | Period 14 |
 
-The rule-based scoring system counts bullish and bearish signals from the above indicators. When `bullish_score - bearish_score >= BUY_THRESHOLD` the rule engine suggests BUY; when the gap is `<= -SELL_THRESHOLD` it suggests SELL. The OpenAI model receives this context alongside the raw indicator values and decides the final signal.
+The scoring system counts bullish and bearish evidence from the indicators and volume. `BUY_THRESHOLD` and `SELL_THRESHOLD` control how the market snapshot describes that score gap as bullish, bearish, or mixed. The current no-key fallback emits `BUY` at a score gap of at least `4`, `SELL` at `-4` or lower, and `HOLD` otherwise. When an OpenAI key is configured, the model receives the snapshot, raw indicator values, scores, and reasons and returns the final structured signal.
 
 ---
 
@@ -225,21 +235,22 @@ The rule-based scoring system counts bullish and bearish signals from the above 
 | `OPENAI_MODEL` | `gpt-4.1-nano` | OpenAI model to use |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1/responses` | OpenAI endpoint |
 | `OPENAI_TIMEOUT` | `20` | Request timeout in seconds |
-| `SIGNAL_REFRESH_SECONDS` | `300` | Seconds between OpenAI refreshes |
+| `SIGNAL_REFRESH_SECONDS` | `300` | Seconds between full candle/indicator and OpenAI refreshes in console mode |
 | `BINANCE_SYMBOL` | `BTCUSDT` | Trading pair to watch |
 | `BINANCE_INTERVAL` | `15m` | Kline interval |
 | `BINANCE_LOOKBACK` | `250` | Number of candles to fetch |
 | `BINANCE_BASE_URL` | `https://api.binance.com` | Binance API base URL |
-| `BINANCE_RETRY_COUNT` | `3` | Retries on Binance timeout |
+| `BINANCE_RETRY_COUNT` | `3` | Total Binance attempts per cycle after retryable failures |
 | `BINANCE_RETRY_DELAY_SECONDS` | `2` | Delay between retries |
 | `POLL_SECONDS` | `60` | Price check interval |
-| `BUY_THRESHOLD` | `4` | Min bullish score gap to suggest BUY |
-| `SELL_THRESHOLD` | `4` | Min bearish score gap to suggest SELL |
+| `BUY_THRESHOLD` | `4` | Bullish score-gap label used in the market snapshot |
+| `SELL_THRESHOLD` | `4` | Bearish score-gap label used in the market snapshot |
 | `REQUEST_TIMEOUT` | `10` | HTTP request timeout in seconds |
+| `STATE_FILE` | `agent_state.json` | Signal/position state path; use an absolute path to place it outside the project directory |
 | `AP2_SIM_SECRET` | _(internal fallback)_ | HMAC secret for local AP2-inspired simulation signing; set this for any non-throwaway demo |
 | `AUTO_SIM_ENABLED` | `true` | Auto-start the simulation runner on API server start |
 | `AUTO_SIM_POLL_SECONDS` | `5` | Poll interval for auto simulation |
-| `AUTO_SIM_SIGNAL_REFRESH_SECONDS` | same as poll | Signal refresh interval for auto simulation |
+| `AUTO_SIM_SIGNAL_REFRESH_SECONDS` | same as poll | Full candle/indicator and OpenAI refresh interval for auto simulation |
 | `AUTO_SIM_STARTING_CASH` | `500.0` | Starting cash for auto simulation |
 | `AUTO_SIM_BUY_COOLDOWN_SECONDS` | `5` | Buy cooldown for auto simulation |
 | `AUTO_SIM_DROP_TO_BUY_USD` | `25.0` | Buy trigger for auto simulation |
@@ -251,7 +262,16 @@ The rule-based scoring system counts bullish and bearish signals from the above 
 | `AGENT_API_PORT` | `8765` | API server port |
 | `AGENT_API_TOKEN` | _(empty)_ | Bearer token required for mutations when configured; mandatory for non-loopback binding |
 | `AGENT_CORS_ORIGIN` | _(empty)_ | Exact browser origin allowed for cross-origin API requests; wildcard origins are not supported |
-| `AGENT_DATA_DIR` | project directory | Directory for runtime state, AP2 mandates, and audit logs; Docker uses `/data` |
+| `AGENT_DATA_DIR` | project directory | Base directory for auto-simulation state, AP2 mandates, identities, and audit logs; Docker uses `/data` |
+| `PY_AGENT_API_URL` | `http://127.0.0.1:8765` | Python backend URL used by the Next.js server-side proxy |
+
+### Configuration loading
+
+- `btc_agent.py` loads the project-root `.env` without overwriting variables already present in the process environment. This covers the agent settings and API settings that are read after startup.
+- For local API runs, set `AGENT_DATA_DIR` in the process environment before starting Python to relocate all storage consistently. Because `ap2_sim` is imported before the project-root `.env` is loaded, an `AGENT_DATA_DIR` entry only in that file is too late for the AP2 paths (even though the API's auto-status path sees it).
+- A direct `ap2_sim.py` CLI run does not load the project-root `.env`; provide `AGENT_DATA_DIR` or `AP2_SIM_SECRET` through the process environment when needed.
+- Next.js reads `PY_AGENT_API_URL` and `AGENT_API_TOKEN` from its server environment. For manual `npm run dev`, set them in the shell or in `web/.env.local`. Docker Compose supplies them to the frontend container automatically.
+- Docker Compose reads the project-root `.env` for `${...}` substitution and explicitly passes the supported values into its containers.
 
 If `api.binance.com` is unavailable in your region, use:
 
@@ -261,23 +281,9 @@ BINANCE_BASE_URL=https://api.binance.us
 
 ---
 
-## Example Console Output
+## Console Output
 
-```text
-----------------------------------------------------------------------------------------------------
-[2026-04-24 09:18:11] BTC: $77922.22 | NEW | Signal: HOLD | Action: WAIT | Confidence: 42%
-SIM | Equity: $500.00 | Cash: $500.00 | BTC: 0.00000000 | Unrealized: +0.00 | Realized: +0.00 | Trades: 0
-
-----------------------------------------------------------------------------------------------------
-[2026-04-24 09:18:21] BTC: $77910.80 | DOWN -$11.42 | Signal: HOLD | Action: WAIT | Confidence: 42%
-SIM | Equity: $500.00 | Cash: $0.00 | BTC: 0.00641744 | Unrealized: +0.00 | Realized: +0.00 | Trades: 1
-AUTO BUY | Spent $500.00 | Bought 0.00641744 BTC at $77910.80 after a $11.42 drop | Cash: $500.00 -> $0.00
-
-----------------------------------------------------------------------------------------------------
-[2026-04-24 09:18:31] BTC: $77918.85 | UP +$8.05 | Signal: HOLD | Action: WAIT | Confidence: 42%
-SIM | Equity: $500.05 | Cash: $500.05 | BTC: 0.00000000 | Unrealized: +0.00 | Realized: +0.05 | Trades: 2
-AUTO SELL | Received $500.05 | P/L +0.05 (+0.01%) at $77918.85 after a $8.05 rise from entry | Cash: $0.00 -> $500.05 | Equity before sell: $500.05
-```
+Live mode prints the current BTC price, price movement, signal, execution action, confidence, and indicator reasons. Auto-simulation mode additionally prints equity, cash, BTC balance, realized/unrealized P&L, trade count, fees, effective execution price, market price, and AP2-inspired mandate events. Exact values depend on live Binance data and the configured trigger, fee, and slippage settings.
 
 ---
 
@@ -295,11 +301,14 @@ The `/ap2` API response includes a `protocol.implemented: false` flag and a `mod
 | `Cart Mandate` | Proposed simulated BUY or SELL |
 | `Payment Mandate` | Final record for an executed simulated trade |
 
-All mandates are:
+The simulated trading mandates are:
+
 - SHA-256 hashed for integrity
 - HMAC-signed using `AP2_SIM_SECRET`
 - Validated against the active simulated intent/cart before a simulated payment execution is logged
 - Written to `ap2_logs/ap2_operations.json` and `ap2_logs/ap2_simulation_log.jsonl`
+
+The separate shopping checkout demo uses generated ECDSA P-256 participant keys and stores its local identity registry in `ap2_mandates/ap2_identities.json`.
 
 For real AP2 compliance, this project would still need AP2 mandate schemas and `vct` versioning, SD-JWT or another supported Verifiable Digital Credential format, Trusted Surface user signing, merchant-signed Checkout JWT binding, role-based verification, and Checkout/Payment Receipt JWTs.
 
@@ -309,10 +318,13 @@ For real AP2 compliance, this project would still need AP2 mandate schemas and `
 |------|-------------|
 | `ap2_sim.py` | Mandate creation, signing, validation, and audit logging |
 | `ap2_mandates/active_intent_mandate.json` | Currently active user authorization |
+| `ap2_mandates/ap2_identities.json` | Locally generated ECDSA identities for the shopping demo; ignored by git |
 | `ap2_logs/ap2_operations.json` | Structured operations audit log |
 | `ap2_logs/ap2_simulation_log.jsonl` | Line-delimited audit trail |
 
 ### Supported audit event types
+
+Trading simulation:
 
 - `INTENT_MANDATE_CREATED`
 - `CART_MANDATE_CREATED`
@@ -320,6 +332,13 @@ For real AP2 compliance, this project would still need AP2 mandate schemas and `
 - `SIMULATED_TRADE_EXECUTED`
 - `SIMULATED_TRADE_BLOCKED`
 - `MANDATE_VALIDATION_FAILED`
+
+Shopping checkout simulation:
+
+- `SHOPPING_INTENT_MANDATE_CREATED`
+- `SHOPPING_CART_MANDATE_CREATED`
+- `SHOPPING_CART_APPROVED`
+- `SHOPPING_PAYMENT_MANDATE_CREATED`
 
 ### AP2 self-test
 
@@ -331,7 +350,7 @@ python -c "import json, ap2_sim; print(json.dumps(ap2_sim.run_self_test(), inden
 
 ## Local Cleanup
 
-Generated state, logs, caches, and local secrets are ignored by git. To clean only generated Python/runtime files from your working tree:
+The current repository tracks `agent_state.json`, `auto_sim_state.json`, the active intent mandate, and both AP2 audit logs as runtime snapshots. Running the app can modify them, so review `git status` before committing. Local secrets, caches, temporary output, frontend build/dependency folders, and `ap2_mandates/ap2_identities.json` are ignored. To remove runtime artifacts intentionally (tracked snapshots will then appear as deletions):
 
 ```bash
 find . -type d -name __pycache__ -prune -exec rm -rf {} +
@@ -343,17 +362,17 @@ rm -rf ap2_logs ap2_mandates
 
 ## Next.js Dashboard (optional)
 
-The `web/` folder contains a Next.js 14 + React 18 development dashboard. You do **not** need it to run the agent — `dashboard.html` served by the Python API is sufficient.
+The `web/` folder currently uses Next.js 16, React 19, TypeScript, Lucide icons, and Biome. You do **not** need it to run the agent — `dashboard.html` served by the Python API is sufficient.
 
 To develop or extend the Next.js UI:
 
 ```bash
 cd web
-npm install
+npm ci
 npm run dev
 ```
 
-The dev server runs on `http://localhost:3000` and connects to the Python API at `http://127.0.0.1:8765`.
+The dev server runs on `http://localhost:3000`. Start `python api_server.py` separately; the Next.js server-side route proxies to `PY_AGENT_API_URL`, which defaults to `http://127.0.0.1:8765`.
 
 ---
 
@@ -410,6 +429,6 @@ docker compose down --volumes
 
 - **No real trades are ever placed.** This is simulation only.
 - **Not financial advice.**
-- The live BTC price refreshes as fast as `POLL_SECONDS` allows, but the OpenAI signal is cached and refreshes every `SIGNAL_REFRESH_SECONDS` (default: 5 minutes) to reduce API costs.
+- The live BTC ticker is fetched every poll. In console mode, the full candle/indicator snapshot and OpenAI signal refresh at `SIGNAL_REFRESH_SECONDS` (default: 5 minutes); between refreshes, the cached snapshot is reused with the new live price. The API auto runner instead defaults `AUTO_SIM_SIGNAL_REFRESH_SECONDS` to its poll interval (5 seconds unless configured).
 - If OpenAI is unavailable or over quota, the agent continues running using the last cached or rule-based signal.
-- If Binance times out, the agent retries automatically (`BINANCE_RETRY_COUNT` times) and then continues with the last known price instead of exiting.
+- On a retryable Binance failure, each cycle makes up to `BINANCE_RETRY_COUNT` total attempts. After that, a running tracker reuses its last complete result when one exists; the first cycle reports an error because no stale result is available yet.

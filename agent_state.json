@@ -1,32 +1,31 @@
 {
   "position": "FLAT",
   "last_signal": "HOLD",
-  "last_updated": "2026-07-31T18:16:19+00:00",
+  "last_updated": "2026-07-31T19:23:59+00:00",
   "last_confidence": 42,
   "last_reasons": [
     "Using rule-based fallback because OPENAI_API_KEY is missing.",
-    "Price is above the fast EMA and MACD momentum is improving.",
-    "RSI shows constructive upward momentum without being overbought."
+    "Short-term trend is below medium and long trend.",
+    "RSI is fading inside a weak momentum zone."
   ],
   "last_signal_refresh": "",
-  "last_snapshot_refresh": "2026-07-31T17:35:53+00:00",
+  "last_snapshot_refresh": "2026-07-31T19:23:55+00:00",
   "last_snapshot": {
     "symbol": "BTCUSDT",
     "interval": "15m",
-    "live_price": 63154.62,
-    "candle_close_price": 63154.62,
-    "rsi": 49.67892637303883,
-    "ema_fast": 63047.18168904706,
-    "ema_mid": 63091.11147153866,
-    "ema_slow": 63492.727453231586,
-    "macd_histogram": 84.57933710499441,
-    "atr": 158.56894974355546,
-    "bullish_score": 3,
-    "bearish_score": 2,
+    "live_price": 63046.6,
+    "candle_close_price": 63046.59,
+    "rsi": 45.74831983443111,
+    "ema_fast": 63048.404323833674,
+    "ema_mid": 63076.293791162374,
+    "ema_slow": 63431.65664839994,
+    "macd_histogram": 56.08637631550923,
+    "atr": 151.5413335144889,
+    "bullish_score": 0,
+    "bearish_score": 3,
     "reasons": [
       "Short-term trend is below medium and long trend.",
-      "Price is above the fast EMA and MACD momentum is improving.",
-      "RSI shows constructive upward momentum without being overbought.",
+      "RSI is fading inside a weak momentum zone.",
       "Rule-based score is mixed."
     ]
   }
