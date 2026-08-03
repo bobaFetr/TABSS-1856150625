@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,6 +11,18 @@ import ap2_sim
 
 
 class Ap2SimulationTests(unittest.TestCase):
+    def test_concurrent_operation_appends_do_not_lose_events(self) -> None:
+        path = ap2_sim.AP2_OPERATIONS_LOG_PATH
+        operations = [{"eventType": "TEST", "sequence": index} for index in range(40)]
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(lambda item: ap2_sim.append_operation_json(path, item), operations))
+
+        self.assertTrue(all(results))
+        stored = ap2_sim.load_json(path)
+        self.assertIsNotNone(stored)
+        self.assertEqual(stored["operationCount"], 40)
+        self.assertEqual({item["sequence"] for item in stored["operations"]}, set(range(40)))
+
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         base = Path(self.temp_dir.name)

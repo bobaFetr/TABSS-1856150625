@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { agentRequestSpec } from "../../../lib/agent-route.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -56,52 +57,14 @@ async function writeAgent(path: string, body: unknown) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const action = url.searchParams.get("action") ?? "state";
-
-  if (action === "auto") {
-    return readAgent("/auto/status");
-  }
-
-  if (action === "ap2") {
-    return readAgent("/ap2?limit=12");
-  }
-
-  if (action === "health") {
-    return readAgent("/health");
-  }
-
-  return readAgent("/state");
+  const spec = agentRequestSpec("GET", url.searchParams.get("action"), url.searchParams);
+  return spec ? readAgent(spec.path) : NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 }
 
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const action = url.searchParams.get("action") ?? "";
-
-  if (action === "signal") {
-    url.searchParams.delete("action");
-    return writeAgent(`/signal?${url.searchParams.toString()}`, {});
-  }
-
-  if (action === "start-auto") {
-    return writeAgent("/auto/start", {});
-  }
-
-  if (action === "stop-auto") {
-    return writeAgent("/auto/stop", {});
-  }
-
-  if (action === "configure-auto") {
-    url.searchParams.delete("action");
-    return writeAgent(`/auto/configure?${url.searchParams.toString()}`, {});
-  }
-
-  if (action === "checkout-demo") {
-    return writeAgent("/ap2/checkout/demo", {});
-  }
-
-  if (action === "checkout-run") {
-    return writeAgent("/ap2/checkout/run", await request.json());
-  }
-
-  return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  const spec = agentRequestSpec("POST", action, url.searchParams);
+  if (!spec) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  return writeAgent(spec.path, spec.forwardBody ? await request.json() : {});
 }

@@ -17,6 +17,8 @@ from typing import Any
 from uuid import uuid4
 
 import ap2_sim
+from exchange import BinanceClient
+from indicators import atr, ema, macd, rsi
 
 
 UPDATE_OPTIONS = {
@@ -226,51 +228,6 @@ def snapshot_from_dict(payload: dict[str, Any]) -> MarketSnapshot | None:
         return None
 
 
-class BinanceClient:
-    def __init__(self, base_url: str, timeout: float) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
-
-    def _get_json(self, path: str, params: dict[str, Any]) -> Any:
-        query = urllib.parse.urlencode(params)
-        url = f"{self.base_url}{path}?{query}"
-        request = urllib.request.Request(
-            url,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "btc-signal-agent/1.0",
-            },
-        )
-
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                payload = response.read().decode("utf-8")
-        except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="ignore")
-            raise RuntimeError(
-                f"Binance request failed with HTTP {exc.code}: {body or exc.reason}"
-            ) from exc
-        except urllib.error.URLError as exc:
-            raise RuntimeError(f"Could not reach Binance: {exc.reason}") from exc
-
-        return json.loads(payload)
-
-    def get_klines(self, symbol: str, interval: str, limit: int) -> list[list[Any]]:
-        data = self._get_json(
-            "/api/v3/klines",
-            {"symbol": symbol.upper(), "interval": interval, "limit": limit},
-        )
-        if not isinstance(data, list):
-            raise RuntimeError(f"Unexpected Binance response: {data}")
-        return data
-
-    def get_ticker_price(self, symbol: str) -> float:
-        data = self._get_json("/api/v3/ticker/price", {"symbol": symbol.upper()})
-        if not isinstance(data, dict) or "price" not in data:
-            raise RuntimeError(f"Unexpected Binance ticker response: {data}")
-        return float(data["price"])
-
-
 class OpenAIClient:
     def __init__(self, api_key: str, base_url: str, model: str, timeout: float) -> None:
         self.api_key = api_key
@@ -424,103 +381,6 @@ def save_state(path: Path, state: AgentState) -> None:
     finally:
         with contextlib.suppress(OSError):
             temporary_path.unlink()
-
-
-def ema(values: list[float], period: int) -> list[float]:
-    if len(values) < period:
-        raise ValueError(f"Need at least {period} values for EMA")
-
-    multiplier = 2 / (period + 1)
-    result: list[float] = []
-    seed = sum(values[:period]) / period
-
-    for index, value in enumerate(values):
-        if index < period - 1:
-            result.append(seed)
-        elif index == period - 1:
-            result.append(seed)
-        else:
-            result.append(((value - result[-1]) * multiplier) + result[-1])
-
-    return result
-
-
-def rsi(values: list[float], period: int = 14) -> list[float]:
-    if len(values) <= period:
-        raise ValueError(f"Need more than {period} values for RSI")
-
-    gains: list[float] = []
-    losses: list[float] = []
-    output = [50.0] * len(values)
-
-    for index in range(1, len(values)):
-        change = values[index] - values[index - 1]
-        gains.append(max(change, 0.0))
-        losses.append(abs(min(change, 0.0)))
-
-    avg_gain = sum(gains[:period]) / period
-    avg_loss = sum(losses[:period]) / period
-
-    if avg_loss == 0:
-        output[period] = 100.0
-    else:
-        rs = avg_gain / avg_loss
-        output[period] = 100 - (100 / (1 + rs))
-
-    for index in range(period + 1, len(values)):
-        gain = gains[index - 1]
-        loss = losses[index - 1]
-        avg_gain = ((avg_gain * (period - 1)) + gain) / period
-        avg_loss = ((avg_loss * (period - 1)) + loss) / period
-
-        if avg_loss == 0:
-            output[index] = 100.0
-        else:
-            rs = avg_gain / avg_loss
-            output[index] = 100 - (100 / (1 + rs))
-
-    return output
-
-
-def macd(
-    values: list[float], fast_period: int = 12, slow_period: int = 26, signal_period: int = 9
-) -> tuple[list[float], list[float], list[float]]:
-    fast = ema(values, fast_period)
-    slow = ema(values, slow_period)
-    macd_line = [fast_value - slow_value for fast_value, slow_value in zip(fast, slow)]
-    signal_line = ema(macd_line, signal_period)
-    histogram = [macd_value - signal_value for macd_value, signal_value in zip(macd_line, signal_line)]
-    return macd_line, signal_line, histogram
-
-
-def atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> list[float]:
-    if len(closes) <= period:
-        raise ValueError(f"Need more than {period} values for ATR")
-
-    true_ranges: list[float] = []
-    for index in range(len(closes)):
-        if index == 0:
-            true_ranges.append(highs[index] - lows[index])
-            continue
-
-        true_ranges.append(
-            max(
-                highs[index] - lows[index],
-                abs(highs[index] - closes[index - 1]),
-                abs(lows[index] - closes[index - 1]),
-            )
-        )
-
-    output = [true_ranges[0]] * len(true_ranges)
-    seed = sum(true_ranges[1 : period + 1]) / period
-    output[period] = seed
-
-    current = seed
-    for index in range(period + 1, len(true_ranges)):
-        current = ((current * (period - 1)) + true_ranges[index]) / period
-        output[index] = current
-
-    return output
 
 
 def clamp(value: int, minimum: int, maximum: int) -> int:

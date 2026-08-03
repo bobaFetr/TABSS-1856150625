@@ -50,7 +50,7 @@ PROTOCOL_ALIGNMENT = {
         "Real payment instrument or payment rail integration",
     ],
 }
-_STORAGE_LOCK = threading.Lock()
+_STORAGE_LOCK = threading.RLock()
 
 
 def ap2_warning(message: str) -> None:
@@ -59,16 +59,17 @@ def ap2_warning(message: str) -> None:
 
 def ensure_storage() -> None:
     try:
-        MANDATES_DIR.mkdir(parents=True, exist_ok=True)
-        LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        if not ACTIVE_INTENT_MANDATE_PATH.exists():
-            ACTIVE_INTENT_MANDATE_PATH.write_text("{}\n", encoding="utf-8")
-        if not AP2_SIMULATION_LOG_PATH.exists():
-            AP2_SIMULATION_LOG_PATH.touch()
-        if not AP2_OPERATIONS_LOG_PATH.exists() or not AP2_OPERATIONS_LOG_PATH.read_text(encoding="utf-8").strip():
-            AP2_OPERATIONS_LOG_PATH.write_text('{"operations": []}\n', encoding="utf-8")
-        if not AP2_IDENTITIES_PATH.exists() or not AP2_IDENTITIES_PATH.read_text(encoding="utf-8").strip():
-            AP2_IDENTITIES_PATH.write_text('{"participants": {}}\n', encoding="utf-8")
+        with _STORAGE_LOCK:
+            MANDATES_DIR.mkdir(parents=True, exist_ok=True)
+            LOGS_DIR.mkdir(parents=True, exist_ok=True)
+            if not ACTIVE_INTENT_MANDATE_PATH.exists():
+                ACTIVE_INTENT_MANDATE_PATH.write_text("{}\n", encoding="utf-8")
+            if not AP2_SIMULATION_LOG_PATH.exists():
+                AP2_SIMULATION_LOG_PATH.touch()
+            if not AP2_OPERATIONS_LOG_PATH.exists() or not AP2_OPERATIONS_LOG_PATH.read_text(encoding="utf-8").strip():
+                AP2_OPERATIONS_LOG_PATH.write_text('{"operations": []}\n', encoding="utf-8")
+            if not AP2_IDENTITIES_PATH.exists() or not AP2_IDENTITIES_PATH.read_text(encoding="utf-8").strip():
+                AP2_IDENTITIES_PATH.write_text('{"participants": {}}\n', encoding="utf-8")
     except OSError as exc:
         ap2_warning(f"Could not initialize AP2 storage: {exc}")
 
@@ -219,11 +220,11 @@ def append_operation_json(path: Path, operation: dict[str, Any]) -> bool:
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
-        return None
-
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        with _STORAGE_LOCK:
+            if not path.exists():
+                return None
+            data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
 

@@ -11,6 +11,9 @@ A Python-based trading signal agent that watches a Binance pair (`BTCUSDT` by de
 ```
 TABSS-1856150625/
 ├── btc_agent.py            # Core agent: market data, indicators, OpenAI signal, simulation engine
+├── exchange.py             # Public Binance market-data client
+├── indicators.py           # Pure-Python EMA, RSI, MACD, and ATR calculations
+├── backtest.py             # Deterministic historical strategy evaluator
 ├── api_server.py           # Local HTTP API (port 8765) + dashboard server
 ├── ap2_sim.py              # AP2-inspired mandate creation, signing, and audit logging
 ├── dashboard.html          # Standalone web dashboard (served by api_server.py)
@@ -36,6 +39,8 @@ TABSS-1856150625/
 - `cryptography` for the ECDSA mandate-signing simulation (installed from `requirements.txt`)
 - An optional [OpenAI API key](https://platform.openai.com/account/api-keys); without one, the rule-based fallback is used
 - Internet access to reach the configured Binance endpoint and, when enabled, the OpenAI API
+
+The committed Python and npm lock files are used by CI to reproduce dependency versions. GitHub Actions runs Python compilation and unit tests plus frontend contract tests, linting, and a production Next.js build.
 
 ---
 
@@ -225,6 +230,16 @@ All indicators are computed in pure Python from Binance kline data with no exter
 
 The scoring system counts bullish and bearish evidence from the indicators and volume. `BUY_THRESHOLD` and `SELL_THRESHOLD` control how the market snapshot describes that score gap as bullish, bearish, or mixed. The current no-key fallback emits `BUY` at a score gap of at least `4`, `SELL` at `-4` or lower, and `HOLD` otherwise. When an OpenAI key is configured, the model receives the snapshot, raw indicator values, scores, and reasons and returns the final structured signal.
 
+### Historical backtesting
+
+Use `backtest.py` with Binance-format kline JSON or a CSV containing `open_time,open,high,low,close,volume`:
+
+```bash
+python backtest.py candles.json --starting-cash 1000 --fee-rate-bps 10 --slippage-bps 2
+```
+
+The deterministic backtest calculates each signal after a candle closes and executes it at the next candle's open. It reports return, buy-and-hold return, excess return, maximum drawdown, fees, completed-trade win rate, and realized P&L. Historical results do not predict future performance.
+
 ---
 
 ## Environment Variables
@@ -351,6 +366,8 @@ python -c "import json, ap2_sim; print(json.dumps(ap2_sim.run_self_test(), inden
 ## Local Cleanup
 
 Runtime state, simulated mandates, audit logs, local secrets, caches, temporary output, and frontend build/dependency folders are ignored by git. The application recreates the state and AP2 directories when needed. To remove local runtime artifacts intentionally:
+
+JSON state is atomically replaced, and AP2 initialization, reads, and append operations are serialized within the API process. The deployment remains intentionally single-process; use a transactional external store before running multiple API processes against one data directory.
 
 ```bash
 find . -type d -name __pycache__ -prune -exec rm -rf {} +
