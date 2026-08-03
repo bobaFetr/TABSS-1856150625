@@ -382,6 +382,12 @@ paket-files/
 **/__pycache__/
 *.pyc
 
+# Local agent runtime state and AP2 simulation artifacts
+agent_state.json
+auto_sim_state.json
+ap2_logs/
+ap2_mandates/
+
 # Cake - Uncomment if you are using it
 #tools/**
 #!tools/packages.config

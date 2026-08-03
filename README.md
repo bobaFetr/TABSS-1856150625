@@ -15,10 +15,10 @@ TABSS-1856150625/
 ├── ap2_sim.py              # AP2-inspired mandate creation, signing, and audit logging
 ├── dashboard.html          # Standalone web dashboard (served by api_server.py)
 ├── web/                    # Next.js dashboard (optional development UI)
-├── agent_state.json        # Runtime signal/position snapshot
-├── auto_sim_state.json     # Runtime auto-simulation snapshot
-├── ap2_mandates/           # Runtime simulated mandate JSON
-├── ap2_logs/               # Runtime AP2-inspired audit logs
+├── agent_state.json        # Generated runtime signal/position snapshot (gitignored)
+├── auto_sim_state.json     # Generated auto-simulation snapshot (gitignored)
+├── ap2_mandates/           # Generated simulated mandate JSON (gitignored)
+├── ap2_logs/               # Generated AP2-inspired audit logs (gitignored)
 ├── .env                    # Your local secrets, ignored by git
 ├── .env.example            # Example environment variable template
 ├── START_DASHBOARD.cmd     # One-click dashboard launcher (Windows)
@@ -350,7 +350,7 @@ python -c "import json, ap2_sim; print(json.dumps(ap2_sim.run_self_test(), inden
 
 ## Local Cleanup
 
-The current repository tracks `agent_state.json`, `auto_sim_state.json`, the active intent mandate, and both AP2 audit logs as runtime snapshots. Running the app can modify them, so review `git status` before committing. Local secrets, caches, temporary output, frontend build/dependency folders, and `ap2_mandates/ap2_identities.json` are ignored. To remove runtime artifacts intentionally (tracked snapshots will then appear as deletions):
+Runtime state, simulated mandates, audit logs, local secrets, caches, temporary output, and frontend build/dependency folders are ignored by git. The application recreates the state and AP2 directories when needed. To remove local runtime artifacts intentionally:
 
 ```bash
 find . -type d -name __pycache__ -prune -exec rm -rf {} +
