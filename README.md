@@ -115,6 +115,14 @@ python btc_agent.py --once
 
 ## Web Dashboard
 
+### Research workspace
+
+The dashboards are presented in Bulgarian as **TABSS — търговски симулации**. The Next.js interface separates **Симулация**, **Експерименти с мандати**, and **Анализ и журнал**; the standalone dashboard offers simulation and analysis/audit sections.
+
+The execution status is separate from the analytical BUY/SELL/HOLD recommendation. Signal source is reported as technical rules, OpenAI, cached, or unknown. A signal score is not a calibrated probability of profit.
+
+**Спри** stops the current run. **Нова симулация** starts with a fresh balance from the saved settings; it does not resume a previous portfolio. Save edited settings before starting. Applying settings during a run explicitly starts over with a fresh balance. **Анализирай веднъж** in Next.js runs a single analysis while the simulation is stopped; **Обнови екрана** in the standalone dashboard only reloads displayed status.
+
 The dashboard is the easiest way to monitor and control the simulation.
 
 **Start the standalone Python dashboard (no Node.js required):**

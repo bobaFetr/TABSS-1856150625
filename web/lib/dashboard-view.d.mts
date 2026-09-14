@@ -1,0 +1,2 @@
+export function dashboardView(auto: { running?: boolean; pollSeconds?: number; lastTickUtc?: string; lastError?: string | null; messages?: string[]; simulation?: { btcBalance?: number }; signal?: { signal_source?: string; timestamp_utc?: string } | null } | null | undefined, signal?: { signal_source?: string; timestamp_utc?: string } | null, now?: number): { source: string; action: string; explanation: string; market: string };
+export function auditRows<T extends { eventId?: string }>(events: T[]): { event: T; key: string }[];

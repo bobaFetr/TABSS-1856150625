@@ -142,6 +142,11 @@ class ApiServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("Simulation only", body)
         self.assertIn("/auto/status", body)
+        self.assertIn('type="module"', body)
+        self.assertIn('/dashboard-view.mjs', body)
+        module_status, module = self.get_text('/dashboard-view.mjs')
+        self.assertEqual(module_status, 200)
+        self.assertIn('export function dashboardView', module)
 
     def test_ap2_protocol_boundary(self) -> None:
         status, payload = self.get_json("/ap2")

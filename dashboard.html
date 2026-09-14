@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="bg">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BTC Signal Agent</title>
+  <title>TABSS — търговски симулации</title>
   <link rel="icon" href="/icon.png">
   <link rel="stylesheet" href="/dashboard.css">
   <style>
@@ -61,53 +61,63 @@
 <body>
 <main>
   <section class="bar">
-    <div class="brandLockup"><img class="brandLogo" src="/logo.png" alt="BTC Signal Agent logo"><div><div class="eyebrow">BTCUSDT simulated execution desk</div><h1>Signal Agent</h1></div></div>
-    <div class="actions"><button id="toggle" class="secondary">Pause</button><button id="refresh" class="primary">Refresh</button></div>
+    <div class="brandLockup"><img class="brandLogo" src="/logo.png" alt="BTC Signal Agent logo"><div><div class="eyebrow">Самостоятелна изследователска среда · BTCUSDT</div><h1>TABSS — търговски симулации</h1></div></div>
+    <div class="actions"><button id="toggle" class="secondary" disabled>Нова симулация</button><button id="refresh" class="primary">Обнови екрана</button></div>
   </section>
   <section class="notice">
-    <strong>Simulation only.</strong>
-    <span>No real trades are placed, no real money moves, and Binance is used only for public market data.</span>
+    <strong>Само симулация · Simulation only.</strong>
+    <span>Няма реални поръчки или плащания. Задайте правила, запазете ги и изберете „Нова симулация“. Всяко ново изпълнение започва отначало със запазения начален капитал.</span>
   </section>
-  <div id="alert" class="alert"></div>
+  <div id="alert" role="alert" class="alert"></div>
   <section class="statusLine">
-    <div class="statusBox"><span class="label">Python API</span><strong id="apiStatus">Checking</strong></div>
-    <div class="statusBox"><span class="label">Market/OpenAI</span><strong id="upstreamStatus">Waiting</strong></div>
-    <div class="statusBox"><span class="label">Mode</span><strong id="modeStatus">Simulation</strong></div>
+    <div class="statusBox"><span class="label">Връзка със системата</span><strong id="apiStatus">Checking</strong></div>
+    <div class="statusBox"><span class="label">Пазарни данни</span><strong id="upstreamStatus">Waiting</strong></div>
+    <div class="statusBox"><span class="label">Режим</span><strong id="modeStatus">Симулиран портфейл</strong></div>
   </section>
-  <section class="hero">
+  <nav class="workspaceNav" aria-label="Раздели"><button data-section="simulation" aria-pressed="true">Симулация</button><button data-section="details" aria-pressed="false">Анализ и журнал</button></nav>
+  <section class="decisionPanel" aria-live="polite"><div><span class="label">Състояние на симулацията</span><h2 id="decision">Изчакване на връзка</h2><p id="decisionReason">Получаване на текущото състояние…</p></div><div><span class="label">Източник на аналитичния сигнал</span><strong id="signalSource">Няма информация</strong><p>Сигналът е препоръка. Изпълнението изисква ценови условия и валиден мандат.</p></div></section>
+  <section class="hero" id="simulation">
     <article id="priceCard" class="card price hold">
-      <div class="priceHead"><div><span class="label">Live price</span><strong id="price" class="big">-</strong></div><span id="signal" class="pill hold">HOLD</span></div>
-      <div class="meta"><div><span class="label">Position</span><strong id="position">FLAT</strong></div><div><span class="label">Confidence</span><strong id="confidence">0%</strong></div><div><span class="label">Last tick</span><strong id="lastTick">Waiting</strong></div><div><span class="label">Loop</span><strong id="loop">-</strong></div></div>
+      <div class="priceHead"><div><span class="label">Последна цена</span><strong id="price" class="big">-</strong></div><div><span class="label">Аналитичен сигнал</span><span id="signal" class="pill hold">—</span></div></div>
+      <div class="meta"><div><span class="label">Позиция</span><strong id="position">FLAT</strong></div><div><span class="label">Оценка на сигнала</span><strong id="confidence">0%</strong></div><div><span class="label">Последен цикъл</span><strong id="lastTick">Waiting</strong></div><div><span class="label">Интервал</span><strong id="loop">-</strong></div></div>
+      <p class="helpText">Оценката на сигнала не е вероятност за печалба.</p>
     </article>
     <article class="card">
-      <div class="panelHead"><h2>Simulation</h2></div>
-      <div class="stats"><div class="stat"><span class="label">Equity</span><strong id="equity">-</strong></div><div class="stat"><span class="label">Cash</span><strong id="cash">-</strong></div><div class="stat"><span class="label">BTC</span><strong id="btc">-</strong></div><div class="stat"><span class="label">Realized</span><strong id="realized">-</strong></div><div class="stat"><span class="label">Fees</span><strong id="fees">-</strong></div><div class="stat"><span class="label">Slippage</span><strong id="slippage">-</strong></div></div>
+      <div class="panelHead"><h2>Симулиран портфейл</h2></div>
+      <div class="stats"><div class="stat"><span class="label">Обща стойност</span><strong id="equity">-</strong></div><div class="stat"><span class="label">Свободен капитал</span><strong id="cash">-</strong></div><div class="stat"><span class="label">BTC</span><strong id="btc">-</strong></div><div class="stat"><span class="label">Реализиран резултат</span><strong id="realized">-</strong></div><div class="stat"><span class="label">Такси</span><strong id="fees">-</strong></div><div class="stat"><span class="label">Ценово отклонение</span><strong id="slippage">-</strong></div></div>
       <div class="rules"><span id="buyRule">Buy drop -</span><span id="sellRule">Sell rise -</span><span id="executionMode">Price trigger only</span><span id="trades">0 trades</span></div>
+      <h3>Правила за следващото изпълнение</h3><p class="helpText">Покупка с целия капитал при спад между две наблюдения. Продажба на целия BTC при покачване от ефективната входна цена. Няма автоматичен stop-loss.</p>
       <form id="settings" class="settings">
-        <label><span>Money</span><input id="startingCash" type="number" min="1" max="1000" step="1"></label>
-        <label><span>Loop sec</span><input id="pollSeconds" type="number" min="1" max="3600" step="1"></label>
-        <label><span>Buy again sec</span><input id="buyCooldownSeconds" type="number" min="0" max="86400" step="1"></label>
-        <label><span>Buy drop $</span><input id="dropToBuyUsd" type="number" min="0.01" step="0.01"></label>
-        <label><span>Sell rise $</span><input id="riseToSellUsd" type="number" min="0.01" step="0.01"></label>
-        <label><span>Fee bps</span><input id="feeRateBps" type="number" min="0" max="1000" step="0.1"></label>
-        <label><span>Slippage bps</span><input id="slippageBps" type="number" min="0" max="1000" step="0.1"></label>
-        <label><span>Require matching signal</span><input id="requireSignalConfirmation" type="checkbox"></label>
-        <button class="primary apply" type="submit">Apply</button>
+        <label><span>Начален капитал ($)</span><input id="startingCash" required type="number" min="1" max="1000" step="1"></label>
+        <label><span>Наблюдение през (сек.)</span><input id="pollSeconds" required type="number" min="1" max="3600" step="1"></label>
+        <label><span>Изчакване след продажба (сек.)</span><input id="buyCooldownSeconds" required type="number" min="0" max="86400" step="1"></label>
+        <label><span>Спад между наблюденията ($)</span><input id="dropToBuyUsd" required type="number" min="0.01" max="100000" step="0.01"></label>
+        <label><span>Покачване от входната цена ($)</span><input id="riseToSellUsd" required type="number" min="0.01" max="100000" step="0.01"></label>
+        <label><span>Такса (bps; 10 = 0.1%)</span><input id="feeRateBps" required type="number" min="0" max="1000" step="0.1"></label>
+        <label><span>Отклонение (bps; 2 = 0.02%)</span><input id="slippageBps" required type="number" min="0" max="1000" step="0.1"></label>
+        <label><span>Изисквай BUY/SELL потвърждение от анализа</span><input id="requireSignalConfirmation" type="checkbox"></label>
+        <p id="settingsHelp" class="helpText apply" role="status">Изчакване на настройките…</p><button id="applySettings" class="primary apply" type="submit" disabled>Запази настройките</button>
       </form>
     </article>
   </section>
-  <section class="desk">
-    <article class="card"><div class="panelHead"><h2>Market</h2></div><div id="market" class="list"></div><div id="ema" class="ema"></div></article>
-    <article class="card"><div class="panelHead"><h2>Agent Feed</h2></div><div id="feed" class="feed"></div></article>
-    <article class="card"><div class="panelHead"><h2>AP2 Audit</h2></div><div id="audit" class="audit"></div></article>
+  <section class="desk" id="details" hidden>
+    <article class="card"><div class="panelHead"><h2>Технически анализ</h2></div><div id="market" class="list"></div><div id="ema" class="ema"></div></article>
+    <article class="card"><div class="panelHead"><h2>Решения и събития</h2></div><div id="feed" class="feed"></div></article>
+    <article class="card"><div class="panelHead"><h2>Мандати · AP2-inspired</h2></div><p class="helpText">Локална симулация на мандати; няма интеграция с платежна мрежа.</p><div id="audit" class="audit"></div></article>
   </section>
 </main>
-<script>
+<script type="module">
+import { dashboardView } from "/dashboard-view.mjs";
 const money = new Intl.NumberFormat("en-US", {style:"currency", currency:"USD", maximumFractionDigits:2});
 const $ = (id) => document.getElementById(id);
 let touched = false;
+let running = false;
+let busy = false;
+let loaded = false;
+function updateControls(){ $("toggle").disabled = busy || !loaded || (!running && touched); $("applySettings").disabled = busy || !loaded || !touched; $("settingsHelp").textContent = (touched ? "Има незапазени промени. " : "Настройките са запазени. ") + (running ? "Прилагането започва нова симулация с нов баланс." : "Запазете настройките преди нова симулация."); }
+document.querySelectorAll("[data-section]").forEach(button => button.addEventListener("click", () => { document.querySelectorAll("[data-section]").forEach(other => other.setAttribute("aria-pressed", String(other === button))); $("simulation").hidden = button.dataset.section !== "simulation"; $("details").hidden = button.dataset.section !== "details"; }));
 const inputIds = ["startingCash","pollSeconds","buyCooldownSeconds","dropToBuyUsd","riseToSellUsd","feeRateBps","slippageBps","requireSignalConfirmation"];
-inputIds.forEach(id => $(id).addEventListener("input", () => touched = true));
+inputIds.forEach(id => $(id).addEventListener("input", () => { touched = true; updateControls(); }));
 function fmt(v){ return typeof v === "number" ? money.format(v) : "-"; }
 function num(v,d=2){ return typeof v === "number" ? v.toFixed(d) : "-"; }
 function time(v){ return v ? new Intl.DateTimeFormat("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit"}).format(new Date(v)) : "Waiting"; }
@@ -142,22 +152,26 @@ function renderAuto(auto){
   const signal = auto.signal || {};
   const sim = auto.simulation || {};
   const rules = auto.rules || {};
+  running = auto.running; loaded = true;
+  const view = dashboardView(auto);
+  setText("decision", view.action); setText("decisionReason", view.explanation); setText("signalSource", view.source);
+  setText("applySettings", running ? "Приложи и започни отначало" : "Запази настройките");
   const t = tone(signal.signal);
   $("priceCard").className = "card price " + t;
   $("signal").className = "pill " + t;
-  setText("signal", signal.signal || "HOLD");
+  setText("signal", signal.signal || "—");
   setText("price", fmt(signal.price));
   setText("position", sim.btcBalance > 0 ? "LONG" : "FLAT");
-  setText("confidence", `${signal.confidence || 0}%`);
+  setText("confidence", signal.signal ? `${signal.confidence}%` : "—");
   setText("lastTick", time(auto.lastTickUtc));
-  setText("loop", auto.running ? `${auto.pollSeconds}s` : "Paused");
-  setText("toggle", auto.running ? "Pause" : "Start");
-  setText("apiStatus", "Connected");
-  setText("upstreamStatus", auto.lastError ? auto.lastError : "OK");
-  setText("modeStatus", auto.simulationOnly === false ? "Check configuration" : "Simulation only");
+  setText("loop", auto.running ? `${auto.pollSeconds}s` : "Спряна");
+  setText("toggle", auto.running ? "Спри" : "Нова симулация");
+  setText("apiStatus", "Свързан");
+  setText("upstreamStatus", view.market);
+  setText("modeStatus", auto.simulationOnly === false ? "Check configuration" : "Само симулация");
   setText("equity", fmt(sim.equity)); setText("cash", fmt(sim.cashBalance)); setText("btc", num(sim.btcBalance,8)); setText("realized", fmt(sim.realizedPnl)); setText("fees", fmt(sim.totalFeesUsd)); setText("slippage", fmt(sim.totalSlippageCostUsd));
   setText("buyRule", `Buy drop ${fmt(rules.dropToBuyUsd)}`); setText("sellRule", `Sell rise ${fmt(rules.riseToSellUsd)}`); setText("trades", `${sim.tradeCount || 0} trades`);
-  setText("executionMode", rules.executionMode === "PRICE_AND_SIGNAL" ? "Signal confirmed" : "Price trigger only");
+  setText("executionMode", rules.executionMode === "PRICE_AND_SIGNAL" ? "Изисква потвърждение от сигнал" : "Изпълнение по ценови правила");
   const spread = (signal.bullish_score || 0) - (signal.bearish_score || 0);
   $("market").innerHTML = [
     ["RSI", num(signal.rsi)], ["Bullish score", signal.bullish_score ?? 0], ["Bearish score", signal.bearish_score ?? 0],
@@ -167,6 +181,7 @@ function renderAuto(auto){
   const messages = [...(auto.messages || []).slice(-4).reverse(), ...(signal.reasons || []).slice(0,4)];
   $("feed").innerHTML = (auto.lastError ? [`Agent error: ${auto.lastError}`] : messages).map(m => `<div class="feedItem ${m.includes("BUY") ? "good" : m.includes("SELL") ? "warn" : ""}"><strong>${m.startsWith("Agent error") ? "Error" : "Event"}</strong><span>${m}</span></div>`).join("") || `<div class="feedItem"><strong>Waiting</strong><span>The first automatic cycle has not completed yet.</span></div>`;
   syncInputs(auto);
+  updateControls();
 }
 async function refresh(){
   try {
@@ -178,16 +193,18 @@ async function refresh(){
     }
     $("audit").innerHTML = (ap2.auditEvents || []).slice().reverse().slice(0,8).map(e => `<div class="auditRow"><div><strong>${e.eventType || "Audit event"}</strong><span>${e.humanReadableReason || e.status || "Recorded"}</span></div><small>${e.finalAction || "HOLD"}</small></div>`).join("") || `<p class="empty">No AP2 simulation events have been recorded yet.</p>`;
   } catch (e) {
-    setText("apiStatus", "Unavailable");
+    loaded = false; updateControls();
+    setText("apiStatus", "Няма връзка");
     setText("upstreamStatus", "No current status");
     $("alert").textContent = `Python API unavailable: ${e.message}`;
     $("alert").style.display = "block";
   }
 }
-$("toggle").onclick = async () => { const running = $("toggle").textContent === "Pause"; await postJson(running ? "/auto/stop" : "/auto/start"); await refresh(); };
+async function mutate(operation){ if(busy) return; busy = true; updateControls(); try { await operation(); await refresh(); } catch(e) { $("alert").textContent = e.message; $("alert").style.display = "block"; } finally { busy = false; updateControls(); } }
+$("toggle").onclick = () => mutate(() => postJson(running ? "/auto/stop" : "/auto/start"));
 $("refresh").onclick = refresh;
-$("settings").onsubmit = async (e) => { e.preventDefault(); const p = new URLSearchParams(); inputIds.forEach(id => p.set(id, $(id).type === "checkbox" ? $(id).checked : $(id).value)); await postJson("/auto/configure?" + p.toString()); touched = false; await refresh(); };
-refresh(); setInterval(refresh, 2000);
+$("settings").onsubmit = async (e) => { e.preventDefault(); const p = new URLSearchParams(); inputIds.forEach(id => p.set(id, $(id).type === "checkbox" ? $(id).checked : $(id).value)); await mutate(async () => { await postJson("/auto/configure?" + p.toString()); touched = false; }); };
+refresh(); setInterval(() => { if(!busy) refresh(); }, 2000);
 </script>
 </body>
 </html>

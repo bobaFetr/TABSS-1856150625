@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BTC Signal Agent",
-  description: "Next.js dashboard for the local BTC Binance signal agent",
+  title: "TABSS — търговски симулации",
+  description: "Самостоятелна изследователска среда за търговски симулации и мандати",
   icons: {
     icon: "/icon.png",
     shortcut: "/icon.png",
@@ -17,7 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="bg">
       <body>{children}</body>
     </html>
   );

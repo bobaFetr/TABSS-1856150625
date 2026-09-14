@@ -135,6 +135,7 @@ class SignalResult:
     reasons: list[str]
     timestamp_utc: str
     position_after_signal: str
+    signal_source: str = "unknown"
 
 
 @dataclass
@@ -1138,6 +1139,7 @@ def _run_cycle_unlocked(config: AgentConfig) -> SignalResult:
     reasons: list[str]
     refreshed_at = state.last_signal_refresh
     snapshot_refreshed_at = state.last_snapshot_refresh
+    signal_source = "rules"
 
     if config.openai_api_key and snapshot_refreshed:
         snapshot_refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -1149,9 +1151,11 @@ def _run_cycle_unlocked(config: AgentConfig) -> SignalResult:
         )
         try:
             signal, confidence, reasons = openai_client.get_signal(snapshot, state)
+            signal_source = "openai"
             refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         except RuntimeError as exc:
             if state.last_reasons:
+                signal_source = "cache"
                 signal = state.last_signal
                 confidence = state.last_confidence
                 reasons = [f"Using cached AI signal because OpenAI is unavailable: {exc}"]
@@ -1159,6 +1163,7 @@ def _run_cycle_unlocked(config: AgentConfig) -> SignalResult:
                 signal, confidence, reasons = build_rule_based_signal(snapshot)
                 reasons = [f"Using rule-based fallback because OpenAI is unavailable: {exc}"] + reasons[:2]
     elif config.openai_api_key and state.last_reasons:
+        signal_source = "cache"
         signal = state.last_signal
         confidence = state.last_confidence
         reasons = state.last_reasons
@@ -1172,6 +1177,7 @@ def _run_cycle_unlocked(config: AgentConfig) -> SignalResult:
         snapshot_refreshed_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     result = build_signal_result(snapshot, state, signal, confidence, reasons)
+    result.signal_source = signal_source
 
     save_state(
         state_path,

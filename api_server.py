@@ -564,6 +564,9 @@ class AgentApiHandler(BaseHTTPRequestHandler):
             if parsed_url.path == "/dashboard.css":
                 self.send_file(DASHBOARD_CSS_PATH, "text/css; charset=utf-8")
                 return
+            if parsed_url.path == "/dashboard-view.mjs":
+                self.send_file(BASE_DIR / "web" / "lib" / "dashboard-view.mjs", "text/javascript; charset=utf-8")
+                return
             if parsed_url.path == "/logo.png":
                 self.send_file(WEB_PUBLIC_DIR / "logo.png", "image/png")
                 return

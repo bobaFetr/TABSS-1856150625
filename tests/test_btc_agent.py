@@ -143,6 +143,7 @@ class RuntimeFallbackTests(unittest.TestCase):
                 result = btc_agent.run_cycle(config)
 
         self.assertEqual(result.signal, "BUY")
+        self.assertEqual(result.signal_source, "rules")
         self.assertTrue(result.reasons[0].startswith("Using rule-based fallback because OPENAI_API_KEY is missing."))
 
     def test_run_cycle_with_retries_returns_stale_result_after_binance_failure(self) -> None:

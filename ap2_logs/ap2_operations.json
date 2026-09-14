@@ -179,8 +179,870 @@
       },
       "payloadHash": "0c21f687496631e8724dc96d88ba9a23e37752c8b16ab95872e5079ab05dcc25",
       "signature": "8300880bf9cb00fbb87e3fe3bc59783515d04b29f21121f1a0822b763e9b86f2"
+    },
+    {
+      "eventType": "INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:34:43+00:00",
+      "intentMandateId": "intent_20260914T193443_bad8c621",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "HOLD",
+      "status": "ACTIVE",
+      "humanReadableReason": "User authorized AP2-inspired simulated BTCUSDT trading rules.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T193443_bad8c621",
+        "agentId": "btc_binance_signal_agent",
+        "symbol": "BTCUSDT",
+        "mode": "SIMULATION",
+        "allowedActions": [
+          "BUY",
+          "SELL"
+        ],
+        "startingCashUsd": 500.0,
+        "buyCooldownSeconds": 5,
+        "buyRule": {
+          "type": "drop_from_previous_observed_price",
+          "thresholdUsd": 25.0
+        },
+        "sellRule": {
+          "type": "rise_from_entry_price",
+          "thresholdUsd": 25.0
+        },
+        "executionCosts": {
+          "feeRateBps": 10.0,
+          "slippageBps": 2.0
+        },
+        "requireSignalConfirmation": false,
+        "realTradingEnabled": false,
+        "realMoneyMoved": false,
+        "allowWithdrawals": false,
+        "allowLeverage": false,
+        "createdAt": "2026-09-14T19:34:43+00:00",
+        "expiresAt": "2026-09-15T19:34:43+00:00",
+        "userConfirmation": "User authorized simulated BTCUSDT trading only."
+      },
+      "payloadHash": "832d72e540f4e22cba1e215fb87bcb1249fb318f75671c6c597a5ece9fba34e7",
+      "signature": "c55abed54cdc9468152970c64c4382d0215bcb80cf81d32bacbce1a156e0a59c"
+    },
+    {
+      "eventType": "INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:35:48+00:00",
+      "intentMandateId": "intent_20260914T193548_27ac5fcf",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "HOLD",
+      "status": "ACTIVE",
+      "humanReadableReason": "User authorized AP2-inspired simulated BTCUSDT trading rules.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T193548_27ac5fcf",
+        "agentId": "btc_binance_signal_agent",
+        "symbol": "BTCUSDT",
+        "mode": "SIMULATION",
+        "allowedActions": [
+          "BUY",
+          "SELL"
+        ],
+        "startingCashUsd": 500.0,
+        "buyCooldownSeconds": 5,
+        "buyRule": {
+          "type": "drop_from_previous_observed_price",
+          "thresholdUsd": 25.0
+        },
+        "sellRule": {
+          "type": "rise_from_entry_price",
+          "thresholdUsd": 25.0
+        },
+        "executionCosts": {
+          "feeRateBps": 10.0,
+          "slippageBps": 2.0
+        },
+        "requireSignalConfirmation": true,
+        "realTradingEnabled": false,
+        "realMoneyMoved": false,
+        "allowWithdrawals": false,
+        "allowLeverage": false,
+        "createdAt": "2026-09-14T19:35:48+00:00",
+        "expiresAt": "2026-09-15T19:35:48+00:00",
+        "userConfirmation": "User authorized simulated BTCUSDT trading only."
+      },
+      "payloadHash": "0cb4392ed78904749a3956370f60afc8bbf9dc7e610cc0916b2702b8a5c86e08",
+      "signature": "6b017619106e23745a70b60d7ed0764a59be4b538ef01ea89a397d12a31463cd"
+    },
+    {
+      "eventType": "SHOPPING_INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:36:57+00:00",
+      "intentMandateId": "intent_20260914T193657_08479950",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "AUTHORIZE",
+      "status": "ACTIVE",
+      "humanReadableReason": "User created a signed shopping Intent Mandate.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T193657_08479950",
+        "userId": "web_user",
+        "mode": "SIMULATION",
+        "maximumSpendingAmount": 100.0,
+        "currency": "USD",
+        "allowedPurchaseCategories": [
+          "books",
+          "software"
+        ],
+        "humanApprovalRequired": true,
+        "createdAt": "2026-09-14T19:36:57+00:00",
+        "expiresAt": "2026-09-15T19:36:57+00:00"
+      },
+      "payloadHash": "526cf9d04935ca7b5e83fea707b4c073fefaaf0d858f54df83db5f60da88fe4e",
+      "signature": "MEUCIFlwNHlwWWyyv9ARqIqSxRc9plRgdaZur24QbU11qnbHAiEAu7nraqaXzM6iA7zky6byD+aO5wZT/0kuluV3+Uj4BBE="
+    },
+    {
+      "eventType": "SHOPPING_CART_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:36:57+00:00",
+      "intentMandateId": "intent_20260914T193657_08479950",
+      "cartMandateId": "cart_20260914T193657_c5aa276c",
+      "paymentMandateId": null,
+      "finalAction": "PROPOSE_PAYMENT",
+      "status": "PROPOSED",
+      "humanReadableReason": "Merchant created a signed Cart Mandate.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193657_c5aa276c",
+        "parentIntentMandateId": "intent_20260914T193657_08479950",
+        "userId": "web_user",
+        "merchantId": "web_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Python ebook",
+            "category": "books",
+            "quantity": 1,
+            "unitPrice": 24.99,
+            "lineTotal": 24.99
+          },
+          {
+            "name": "Editor plugin",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 19.99,
+            "lineTotal": 19.99
+          }
+        ],
+        "totalAmount": 44.98,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:36:57+00:00",
+        "expiresAt": "2026-09-14T19:51:57+00:00"
+      },
+      "payloadHash": "f99d5382552c7fe867df3955e5eb38c859cb56ac8a07bb26b66249563536815d",
+      "signature": "MEYCIQDt3AK/9jTd75EZuqk4hAb7PRW/uj10nE98c++inAIATAIhAPtx2yV1880CgANHEaDgSGpqNX564WTnblrlC5P3ZLIw"
+    },
+    {
+      "eventType": "SHOPPING_CART_APPROVED",
+      "createdAt": "2026-09-14T19:36:57+00:00",
+      "intentMandateId": "intent_20260914T193657_08479950",
+      "cartMandateId": "cart_20260914T193657_c5aa276c",
+      "paymentMandateId": null,
+      "finalAction": "APPROVE",
+      "status": "APPROVED",
+      "humanReadableReason": "User approved the Cart Mandate with an ECDSA signature.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193657_c5aa276c",
+        "parentIntentMandateId": "intent_20260914T193657_08479950",
+        "userId": "web_user",
+        "merchantId": "web_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Python ebook",
+            "category": "books",
+            "quantity": 1,
+            "unitPrice": 24.99,
+            "lineTotal": 24.99
+          },
+          {
+            "name": "Editor plugin",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 19.99,
+            "lineTotal": 19.99
+          }
+        ],
+        "totalAmount": 44.98,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:36:57+00:00",
+        "expiresAt": "2026-09-14T19:51:57+00:00"
+      },
+      "payloadHash": "f99d5382552c7fe867df3955e5eb38c859cb56ac8a07bb26b66249563536815d",
+      "signature": "MEYCIQDt3AK/9jTd75EZuqk4hAb7PRW/uj10nE98c++inAIATAIhAPtx2yV1880CgANHEaDgSGpqNX564WTnblrlC5P3ZLIw"
+    },
+    {
+      "eventType": "SHOPPING_PAYMENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:36:57+00:00",
+      "intentMandateId": "intent_20260914T193657_08479950",
+      "cartMandateId": "cart_20260914T193657_c5aa276c",
+      "paymentMandateId": "payment_20260914T193657_1cf6fc6a",
+      "finalAction": "PAY",
+      "status": "PROPOSED",
+      "humanReadableReason": "Agent created a signed Payment Mandate.",
+      "payload": {
+        "mandateType": "PaymentMandate",
+        "mandateId": "payment_20260914T193657_1cf6fc6a",
+        "parentCartMandateId": "cart_20260914T193657_c5aa276c",
+        "parentIntentMandateId": "intent_20260914T193657_08479950",
+        "agentId": "web_agent",
+        "userId": "web_user",
+        "merchantId": "web_merchant",
+        "mode": "SIMULATION",
+        "amount": 44.98,
+        "currency": "USD",
+        "paymentMethod": "simulated_card",
+        "humanPresent": true,
+        "realMoneyMoved": false,
+        "createdAt": "2026-09-14T19:36:57+00:00"
+      },
+      "payloadHash": "22f7c8bf89acc1fa0da1ee33b4020f208a7105cf55cf7c46590b4ec3be528b95",
+      "signature": "MEYCIQC6LDdLbusoU/WazNjnTwBO/VUx6aRzVhsDptt/t3IVowIhAKwWsZcA76/sjpFllw2yDnVtp8y3iBlF6QEVAlXgji1W"
+    },
+    {
+      "eventType": "SHOPPING_INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:10+00:00",
+      "intentMandateId": "intent_20260914T193710_f21beae4",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "AUTHORIZE",
+      "status": "ACTIVE",
+      "humanReadableReason": "User created a signed shopping Intent Mandate.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T193710_f21beae4",
+        "userId": "web_user",
+        "mode": "SIMULATION",
+        "maximumSpendingAmount": 100.0,
+        "currency": "USD",
+        "allowedPurchaseCategories": [
+          "books",
+          "software"
+        ],
+        "humanApprovalRequired": true,
+        "createdAt": "2026-09-14T19:37:10+00:00",
+        "expiresAt": "2026-09-15T19:37:10+00:00"
+      },
+      "payloadHash": "875da82c9047e783d3712172261c829f027c8755b76cb8bfc7b5cb60b4ba2eb8",
+      "signature": "MEQCIAbfgXOAisNo92HMz72cXl3I9dOJcjApUOH3Dcyi2dgHAiBnQ8eYr0cFzhNwNHfjdRSlAr8O7DmIFuBTeWzg00U0Zw=="
+    },
+    {
+      "eventType": "SHOPPING_CART_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:10+00:00",
+      "intentMandateId": "intent_20260914T193710_f21beae4",
+      "cartMandateId": "cart_20260914T193710_1ab6737a",
+      "paymentMandateId": null,
+      "finalAction": "PROPOSE_PAYMENT",
+      "status": "PROPOSED",
+      "humanReadableReason": "Merchant created a signed Cart Mandate.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193710_1ab6737a",
+        "parentIntentMandateId": "intent_20260914T193710_f21beae4",
+        "userId": "web_user",
+        "merchantId": "web_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Python ebook",
+            "category": "books",
+            "quantity": 1,
+            "unitPrice": 24.99,
+            "lineTotal": 24.99
+          },
+          {
+            "name": "Editor plugin",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 19.99,
+            "lineTotal": 19.99
+          }
+        ],
+        "totalAmount": 44.98,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:10+00:00",
+        "expiresAt": "2026-09-14T19:52:10+00:00"
+      },
+      "payloadHash": "eaee9e45489d53334069c3b415b4a76e1dc99fd6e6f6767b06d7a55c9908f53a",
+      "signature": "MEUCIQCTHTrPiivHs20MD2uDjDW+ogzVAcTKNXUhZX6n5Ik0xwIgNjql7k7ulTHbQyCgVS0iYdg7p6LJJDh5bDscLwdwLc8="
+    },
+    {
+      "eventType": "SHOPPING_CART_APPROVED",
+      "createdAt": "2026-09-14T19:37:10+00:00",
+      "intentMandateId": "intent_20260914T193710_f21beae4",
+      "cartMandateId": "cart_20260914T193710_1ab6737a",
+      "paymentMandateId": null,
+      "finalAction": "APPROVE",
+      "status": "APPROVED",
+      "humanReadableReason": "User approved the Cart Mandate with an ECDSA signature.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193710_1ab6737a",
+        "parentIntentMandateId": "intent_20260914T193710_f21beae4",
+        "userId": "web_user",
+        "merchantId": "web_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Python ebook",
+            "category": "books",
+            "quantity": 1,
+            "unitPrice": 24.99,
+            "lineTotal": 24.99
+          },
+          {
+            "name": "Editor plugin",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 19.99,
+            "lineTotal": 19.99
+          }
+        ],
+        "totalAmount": 44.98,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:10+00:00",
+        "expiresAt": "2026-09-14T19:52:10+00:00"
+      },
+      "payloadHash": "eaee9e45489d53334069c3b415b4a76e1dc99fd6e6f6767b06d7a55c9908f53a",
+      "signature": "MEUCIQCTHTrPiivHs20MD2uDjDW+ogzVAcTKNXUhZX6n5Ik0xwIgNjql7k7ulTHbQyCgVS0iYdg7p6LJJDh5bDscLwdwLc8="
+    },
+    {
+      "eventType": "SHOPPING_PAYMENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:10+00:00",
+      "intentMandateId": "intent_20260914T193710_f21beae4",
+      "cartMandateId": "cart_20260914T193710_1ab6737a",
+      "paymentMandateId": "payment_20260914T193710_85cfcea6",
+      "finalAction": "PAY",
+      "status": "PROPOSED",
+      "humanReadableReason": "Agent created a signed Payment Mandate.",
+      "payload": {
+        "mandateType": "PaymentMandate",
+        "mandateId": "payment_20260914T193710_85cfcea6",
+        "parentCartMandateId": "cart_20260914T193710_1ab6737a",
+        "parentIntentMandateId": "intent_20260914T193710_f21beae4",
+        "agentId": "web_agent",
+        "userId": "web_user",
+        "merchantId": "web_merchant",
+        "mode": "SIMULATION",
+        "amount": 44.98,
+        "currency": "USD",
+        "paymentMethod": "simulated_card",
+        "humanPresent": true,
+        "realMoneyMoved": false,
+        "createdAt": "2026-09-14T19:37:10+00:00"
+      },
+      "payloadHash": "0aec1e99d9e1447783eaa996549ddbd03dab4acda89e5ee0ce1b946c326a0ece",
+      "signature": "MEYCIQDUqUf/S77B+D0U7HW3LVIs+7LfJIxnifEFI07+ZWMguQIhAIBFb8FBpYEW5xjJ0CBjlsuHjcKTW0AU45MRB/zS3gyN"
+    },
+    {
+      "eventType": "SHOPPING_INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "AUTHORIZE",
+      "status": "ACTIVE",
+      "humanReadableReason": "User created a signed shopping Intent Mandate.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T193712_0efdd8e4",
+        "userId": "demo_user",
+        "mode": "SIMULATION",
+        "maximumSpendingAmount": 100.0,
+        "currency": "USD",
+        "allowedPurchaseCategories": [
+          "books",
+          "software"
+        ],
+        "humanApprovalRequired": true,
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-15T19:37:12+00:00"
+      },
+      "payloadHash": "c466ad1252e226fb72535011be2646187885be73ca09be79c74c5ac021d639fc",
+      "signature": "MEYCIQDT3m7PrUpqZmZbQzSOrKGQO8OZwSwgegHJ8BawWb6igQIhAOoZpRN2rsIi11nKmlrd/Wl0lVXB8AZ8R6HQEy6zCoII"
+    },
+    {
+      "eventType": "SHOPPING_CART_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_97da2d46",
+      "paymentMandateId": null,
+      "finalAction": "PROPOSE_PAYMENT",
+      "status": "PROPOSED",
+      "humanReadableReason": "Merchant created a signed Cart Mandate.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193712_97da2d46",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Python ebook",
+            "category": "books",
+            "quantity": 1,
+            "unitPrice": 24.99,
+            "lineTotal": 24.99
+          },
+          {
+            "name": "Editor plugin",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 19.99,
+            "lineTotal": 19.99
+          }
+        ],
+        "totalAmount": 44.98,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-14T19:52:12+00:00"
+      },
+      "payloadHash": "c021e6489ded15adc10423bd45e5e5f9805cb5effa6dc87a1d68d11612dd6c06",
+      "signature": "MEUCIQDDGGriyJU2uWUCp1nQ6LHJsLZ9OBy3JCP6JhG5GpMv5QIgcF0emLlk6McdzZEacWUjkPVSuQnfWTgg2b9WrEATUGA="
+    },
+    {
+      "eventType": "SHOPPING_CART_APPROVED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_97da2d46",
+      "paymentMandateId": null,
+      "finalAction": "APPROVE",
+      "status": "APPROVED",
+      "humanReadableReason": "User approved the Cart Mandate with an ECDSA signature.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193712_97da2d46",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Python ebook",
+            "category": "books",
+            "quantity": 1,
+            "unitPrice": 24.99,
+            "lineTotal": 24.99
+          },
+          {
+            "name": "Editor plugin",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 19.99,
+            "lineTotal": 19.99
+          }
+        ],
+        "totalAmount": 44.98,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-14T19:52:12+00:00"
+      },
+      "payloadHash": "c021e6489ded15adc10423bd45e5e5f9805cb5effa6dc87a1d68d11612dd6c06",
+      "signature": "MEUCIQDDGGriyJU2uWUCp1nQ6LHJsLZ9OBy3JCP6JhG5GpMv5QIgcF0emLlk6McdzZEacWUjkPVSuQnfWTgg2b9WrEATUGA="
+    },
+    {
+      "eventType": "SHOPPING_PAYMENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_97da2d46",
+      "paymentMandateId": "payment_20260914T193712_479e3217",
+      "finalAction": "PAY",
+      "status": "PROPOSED",
+      "humanReadableReason": "Agent created a signed Payment Mandate.",
+      "payload": {
+        "mandateType": "PaymentMandate",
+        "mandateId": "payment_20260914T193712_479e3217",
+        "parentCartMandateId": "cart_20260914T193712_97da2d46",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "agentId": "demo_agent",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "amount": 44.98,
+        "currency": "USD",
+        "paymentMethod": "simulated_card",
+        "humanPresent": true,
+        "realMoneyMoved": false,
+        "createdAt": "2026-09-14T19:37:12+00:00"
+      },
+      "payloadHash": "4fc7364c386776b53fb9930f7c4313e204d60f6608a341d07320f0fbb836ed70",
+      "signature": "MEQCIHSro2TNYusdVARG9YKG5GuBKqOwC9iQovBVBkGkte/pAiB8obbhPEHBRjnEnhKeIe91lC1he+VXSpY7NmI152Mvcg=="
+    },
+    {
+      "eventType": "SHOPPING_CART_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_702b9173",
+      "paymentMandateId": null,
+      "finalAction": "PROPOSE_PAYMENT",
+      "status": "PROPOSED",
+      "humanReadableReason": "Merchant created a signed Cart Mandate.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193712_702b9173",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Expensive course",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 150.0,
+            "lineTotal": 150.0
+          }
+        ],
+        "totalAmount": 150.0,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-14T19:52:12+00:00"
+      },
+      "payloadHash": "c4333c594604648193ddea5f4ba89807177bda213b17609310066356a171656c",
+      "signature": "MEQCIE0MEQPRK9URxluMFjbUIpKpDOhVNIJ2VG+j27VOSapGAiA4LzEuhBxZASZ/jjfVOjGWdr5S/mhujaq6bCiphLC8sw=="
+    },
+    {
+      "eventType": "SHOPPING_CART_APPROVED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_702b9173",
+      "paymentMandateId": null,
+      "finalAction": "APPROVE",
+      "status": "APPROVED",
+      "humanReadableReason": "User approved the Cart Mandate with an ECDSA signature.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193712_702b9173",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Expensive course",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 150.0,
+            "lineTotal": 150.0
+          }
+        ],
+        "totalAmount": 150.0,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-14T19:52:12+00:00"
+      },
+      "payloadHash": "c4333c594604648193ddea5f4ba89807177bda213b17609310066356a171656c",
+      "signature": "MEQCIE0MEQPRK9URxluMFjbUIpKpDOhVNIJ2VG+j27VOSapGAiA4LzEuhBxZASZ/jjfVOjGWdr5S/mhujaq6bCiphLC8sw=="
+    },
+    {
+      "eventType": "SHOPPING_PAYMENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_702b9173",
+      "paymentMandateId": "payment_20260914T193712_46d06271",
+      "finalAction": "PAY",
+      "status": "PROPOSED",
+      "humanReadableReason": "Agent created a signed Payment Mandate.",
+      "payload": {
+        "mandateType": "PaymentMandate",
+        "mandateId": "payment_20260914T193712_46d06271",
+        "parentCartMandateId": "cart_20260914T193712_702b9173",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "agentId": "demo_agent",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "amount": 150.0,
+        "currency": "USD",
+        "paymentMethod": "simulated_card",
+        "humanPresent": true,
+        "realMoneyMoved": false,
+        "createdAt": "2026-09-14T19:37:12+00:00"
+      },
+      "payloadHash": "3563e924285a115ced0285b2df0c33420d855de75c06337d94c076a4f4eba850",
+      "signature": "MEUCID3B1HVt7H4T92vUH3orYf/Na7TOunolufsLYNiswvIOAiEAvcJnXnCwa11AvuLbZAqc6WkJAAA54wbD6nL7kFaUWG8="
+    },
+    {
+      "eventType": "SHOPPING_CART_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_17af3d40",
+      "paymentMandateId": null,
+      "finalAction": "PROPOSE_PAYMENT",
+      "status": "PROPOSED",
+      "humanReadableReason": "Merchant created a signed Cart Mandate.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193712_17af3d40",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Concert ticket",
+            "category": "entertainment",
+            "quantity": 1,
+            "unitPrice": 20.0,
+            "lineTotal": 20.0
+          }
+        ],
+        "totalAmount": 20.0,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-14T19:52:12+00:00"
+      },
+      "payloadHash": "310993ca22f02bb0ab6ebf69996dad6387f44f6e6fab322f9e13244c0b4d41d5",
+      "signature": "MEUCIQDcuD07vt0sT37oa3FY6qIxqXXPUOVGGi8ml8zgVdFCTwIgflVomovgUloG66Mp3ydM+8Gq5ZsGIg0t5Q2L4KKhnr0="
+    },
+    {
+      "eventType": "SHOPPING_CART_APPROVED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_17af3d40",
+      "paymentMandateId": null,
+      "finalAction": "APPROVE",
+      "status": "APPROVED",
+      "humanReadableReason": "User approved the Cart Mandate with an ECDSA signature.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193712_17af3d40",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Concert ticket",
+            "category": "entertainment",
+            "quantity": 1,
+            "unitPrice": 20.0,
+            "lineTotal": 20.0
+          }
+        ],
+        "totalAmount": 20.0,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-14T19:52:12+00:00"
+      },
+      "payloadHash": "310993ca22f02bb0ab6ebf69996dad6387f44f6e6fab322f9e13244c0b4d41d5",
+      "signature": "MEUCIQDcuD07vt0sT37oa3FY6qIxqXXPUOVGGi8ml8zgVdFCTwIgflVomovgUloG66Mp3ydM+8Gq5ZsGIg0t5Q2L4KKhnr0="
+    },
+    {
+      "eventType": "SHOPPING_PAYMENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_0efdd8e4",
+      "cartMandateId": "cart_20260914T193712_17af3d40",
+      "paymentMandateId": "payment_20260914T193712_6fc5a02d",
+      "finalAction": "PAY",
+      "status": "PROPOSED",
+      "humanReadableReason": "Agent created a signed Payment Mandate.",
+      "payload": {
+        "mandateType": "PaymentMandate",
+        "mandateId": "payment_20260914T193712_6fc5a02d",
+        "parentCartMandateId": "cart_20260914T193712_17af3d40",
+        "parentIntentMandateId": "intent_20260914T193712_0efdd8e4",
+        "agentId": "demo_agent",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "amount": 20.0,
+        "currency": "USD",
+        "paymentMethod": "simulated_card",
+        "humanPresent": true,
+        "realMoneyMoved": false,
+        "createdAt": "2026-09-14T19:37:12+00:00"
+      },
+      "payloadHash": "fdafe2626ca553953bfdc9a3be222cb1de8293fdd0f7699074f11b11885ac252",
+      "signature": "MEUCIB96bADq+r7T2XQpWtx+euIL20jia5bIJC5ANe/fDSckAiEAvRG1lmK9Lz9oTDXNcoJeSNoum1XN/B33vexRFy9hUpE="
+    },
+    {
+      "eventType": "SHOPPING_INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_da5b2bd8",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "AUTHORIZE",
+      "status": "ACTIVE",
+      "humanReadableReason": "User created a signed shopping Intent Mandate.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T193712_da5b2bd8",
+        "userId": "demo_user",
+        "mode": "SIMULATION",
+        "maximumSpendingAmount": 50.0,
+        "currency": "USD",
+        "allowedPurchaseCategories": [
+          "software"
+        ],
+        "humanApprovalRequired": false,
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-15T19:37:12+00:00"
+      },
+      "payloadHash": "5cc26f816bdaebc281e9714cd8d3a8536a5a23b387f5d2f770a184402d02deac",
+      "signature": "MEUCIQC3Zo6YG/aBKAXpQV3ivLjRgxo/+O+Ips1i+5UgAzZPIwIgd57/6d8rnGjQM3/rtM9n9sq3xJb1vj6ft1WUnaoxfm0="
+    },
+    {
+      "eventType": "SHOPPING_CART_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_da5b2bd8",
+      "cartMandateId": "cart_20260914T193712_1ed991c4",
+      "paymentMandateId": null,
+      "finalAction": "PROPOSE_PAYMENT",
+      "status": "PROPOSED",
+      "humanReadableReason": "Merchant created a signed Cart Mandate.",
+      "payload": {
+        "mandateType": "CartMandate",
+        "mandateId": "cart_20260914T193712_1ed991c4",
+        "parentIntentMandateId": "intent_20260914T193712_da5b2bd8",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "items": [
+          {
+            "name": "Automation script",
+            "category": "software",
+            "quantity": 1,
+            "unitPrice": 12.0,
+            "lineTotal": 12.0
+          }
+        ],
+        "totalAmount": 12.0,
+        "currency": "USD",
+        "createdAt": "2026-09-14T19:37:12+00:00",
+        "expiresAt": "2026-09-14T19:52:12+00:00"
+      },
+      "payloadHash": "de91905904eaf5aec55559a6a1ae182d6c245b14f2947fe6ac9803bbe9045bcb",
+      "signature": "MEUCIBOM6UqzDCkhzuZ/h37Sg1oXBDhv/1Fl7UJq9+ed+1L4AiEA83/V8+WtWDLlPS+kz9eQ1ZT8Sl65gCYXZeTDaaeSVl0="
+    },
+    {
+      "eventType": "SHOPPING_PAYMENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:37:12+00:00",
+      "intentMandateId": "intent_20260914T193712_da5b2bd8",
+      "cartMandateId": "cart_20260914T193712_1ed991c4",
+      "paymentMandateId": "payment_20260914T193712_2abe0233",
+      "finalAction": "PAY",
+      "status": "PROPOSED",
+      "humanReadableReason": "Agent created a signed Payment Mandate.",
+      "payload": {
+        "mandateType": "PaymentMandate",
+        "mandateId": "payment_20260914T193712_2abe0233",
+        "parentCartMandateId": "cart_20260914T193712_1ed991c4",
+        "parentIntentMandateId": "intent_20260914T193712_da5b2bd8",
+        "agentId": "demo_agent",
+        "userId": "demo_user",
+        "merchantId": "demo_merchant",
+        "mode": "SIMULATION",
+        "amount": 12.0,
+        "currency": "USD",
+        "paymentMethod": "simulated_wallet",
+        "humanPresent": false,
+        "realMoneyMoved": false,
+        "createdAt": "2026-09-14T19:37:12+00:00"
+      },
+      "payloadHash": "e4ff3ac3079208e21b985f4c75e7298d7a57ec8a5752c9a0f26f1f38c085d708",
+      "signature": "MEUCIQCUYZCy7Ea0+8EgH/r6NfuadS8JGkI59ovydoAtOxHSJwIgCIq7lxpV+jLA1Ym5crptQCr8dqp51Ul0ja5xF2LPfV4="
+    },
+    {
+      "eventId": "8157129253cf4495b8cda072fcd15471",
+      "eventType": "INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:39:42+00:00",
+      "intentMandateId": "intent_20260914T193942_c777fd5d",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "HOLD",
+      "status": "ACTIVE",
+      "humanReadableReason": "User authorized AP2-inspired simulated BTCUSDT trading rules.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T193942_c777fd5d",
+        "agentId": "btc_binance_signal_agent",
+        "symbol": "BTCUSDT",
+        "mode": "SIMULATION",
+        "allowedActions": [
+          "BUY",
+          "SELL"
+        ],
+        "startingCashUsd": 500.0,
+        "buyCooldownSeconds": 5,
+        "buyRule": {
+          "type": "drop_from_previous_observed_price",
+          "thresholdUsd": 25.0
+        },
+        "sellRule": {
+          "type": "rise_from_entry_price",
+          "thresholdUsd": 25.0
+        },
+        "executionCosts": {
+          "feeRateBps": 10.0,
+          "slippageBps": 2.0
+        },
+        "requireSignalConfirmation": false,
+        "realTradingEnabled": false,
+        "realMoneyMoved": false,
+        "allowWithdrawals": false,
+        "allowLeverage": false,
+        "createdAt": "2026-09-14T19:39:42+00:00",
+        "expiresAt": "2026-09-15T19:39:42+00:00",
+        "userConfirmation": "User authorized simulated BTCUSDT trading only."
+      },
+      "payloadHash": "237636b4f69e41e895ab3723a845b4e8b30736485154dbe9cebffdb7f8754988",
+      "signature": "c56a1fb4fd18b659229389c04d9c674120d5c2fb0964ed9077b5e48630788c7e"
+    },
+    {
+      "eventId": "4271d83313784d888757a9c31335b612",
+      "eventType": "INTENT_MANDATE_CREATED",
+      "createdAt": "2026-09-14T19:40:01+00:00",
+      "intentMandateId": "intent_20260914T194001_a65eec53",
+      "cartMandateId": null,
+      "paymentMandateId": null,
+      "finalAction": "HOLD",
+      "status": "ACTIVE",
+      "humanReadableReason": "User authorized AP2-inspired simulated BTCUSDT trading rules.",
+      "payload": {
+        "mandateType": "IntentMandate",
+        "mandateId": "intent_20260914T194001_a65eec53",
+        "agentId": "btc_binance_signal_agent",
+        "symbol": "BTCUSDT",
+        "mode": "SIMULATION",
+        "allowedActions": [
+          "BUY",
+          "SELL"
+        ],
+        "startingCashUsd": 500.0,
+        "buyCooldownSeconds": 5,
+        "buyRule": {
+          "type": "drop_from_previous_observed_price",
+          "thresholdUsd": 25.0
+        },
+        "sellRule": {
+          "type": "rise_from_entry_price",
+          "thresholdUsd": 25.0
+        },
+        "executionCosts": {
+          "feeRateBps": 10.0,
+          "slippageBps": 2.0
+        },
+        "requireSignalConfirmation": true,
+        "realTradingEnabled": false,
+        "realMoneyMoved": false,
+        "allowWithdrawals": false,
+        "allowLeverage": false,
+        "createdAt": "2026-09-14T19:40:01+00:00",
+        "expiresAt": "2026-09-15T19:40:01+00:00",
+        "userConfirmation": "User authorized simulated BTCUSDT trading only."
+      },
+      "payloadHash": "595bff122d6af46719fb634cc984169a852b89a55bda128fe4db3ef8e05a02d4",
+      "signature": "9f30d4732cd69c4c5bb22165e25ecc49c6c5fc66840fc03b49ee156ee86acd8d"
     }
   ],
-  "operationCount": 4,
-  "updatedAt": "2026-08-06T10:47:53+00:00"
+  "operationCount": 29,
+  "updatedAt": "2026-09-14T19:40:01+00:00"
 }

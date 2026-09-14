@@ -245,6 +245,7 @@ def append_audit_event(
 ) -> None:
     payload = signed_record.get("payload", {})
     entry = {
+        "eventId": uuid.uuid4().hex,
         "eventType": event_type,
         "createdAt": utc_now_iso(),
         "intentMandateId": intent_mandate_id,
