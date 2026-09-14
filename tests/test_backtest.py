@@ -43,6 +43,7 @@ class BacktestTests(unittest.TestCase):
     def test_execution_uses_next_candle_open(self) -> None:
         rows = synthetic_klines()
         rows[60][1] = 10_000.0
+        rows[60][2] = 10_001.0
         with patch("backtest.btc_agent.build_rule_based_signal", return_value=("BUY", 80, [])):
             result = backtest.run_backtest(rows)
             baseline = backtest.run_backtest(synthetic_klines())

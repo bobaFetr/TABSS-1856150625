@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from validation import positive_integer
+
 
 def ema(values: list[float], period: int) -> list[float]:
+    positive_integer(period, "EMA period")
     if len(values) < period:
         raise ValueError(f"Need at least {period} values for EMA")
 
@@ -19,6 +22,7 @@ def ema(values: list[float], period: int) -> list[float]:
 
 
 def rsi(values: list[float], period: int = 14) -> list[float]:
+    positive_integer(period, "RSI period")
     if len(values) <= period:
         raise ValueError(f"Need more than {period} values for RSI")
 
@@ -53,6 +57,7 @@ def macd(
 
 
 def atr(highs: list[float], lows: list[float], closes: list[float], period: int = 14) -> list[float]:
+    positive_integer(period, "ATR period")
     if len(closes) <= period:
         raise ValueError(f"Need more than {period} values for ATR")
     if len(highs) != len(closes) or len(lows) != len(closes):

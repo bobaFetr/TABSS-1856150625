@@ -444,6 +444,114 @@ docker compose down --volumes
 
 ## Important Notes
 
+### 10 примерни входни данни за тестване
+
+Примерите са за локалния API на `http://127.0.0.1:8765`. Всички заявки по-долу са `POST` с хедър `Content-Type: application/json`. Ако е настроен `AGENT_API_TOKEN`, добавете и `Authorization: Bearer <вашият токен>`.
+
+Преди тестовете спрете автоматичната симулация с `POST /auto/stop` и тяло `{}`. Валидните заявки за конфигурация променят настройките; checkout тестовете създават симулирани мандати и записи в журнала. За отделяне от текущите данни стартирайте тестов API с отделни `AGENT_DATA_DIR` и `STATE_FILE`.
+
+**1. Нормална конфигурация на симулацията**
+
+```http
+POST /auto/configure?startingCash=500&pollSeconds=5&buyCooldownSeconds=5&dropToBuyUsd=25&riseToSellUsd=25&feeRateBps=10&slippageBps=2&requireSignalConfirmation=false
+
+{}
+```
+
+Очакван резултат: HTTP `200`, `ok: true`; настройките са записани, а спряната симулация остава спряна.
+
+**2. Минимални допустими стойности**
+
+```http
+POST /auto/configure?startingCash=1&pollSeconds=1&buyCooldownSeconds=0&dropToBuyUsd=0.01&riseToSellUsd=0.01&feeRateBps=0&slippageBps=0
+
+{}
+```
+
+Очакван резултат: HTTP `200`; всички подадени гранични стойности се приемат.
+
+**3. Максимални допустими стойности**
+
+```http
+POST /auto/configure?startingCash=1000&pollSeconds=3600&buyCooldownSeconds=86400&dropToBuyUsd=100000&riseToSellUsd=100000&feeRateBps=1000&slippageBps=1000
+
+{}
+```
+
+Очакван резултат: HTTP `200`; всички подадени гранични стойности се приемат.
+
+**4. Начална сума над лимита**
+
+```http
+POST /auto/configure?startingCash=1001
+
+{}
+```
+
+Очакван резултат: HTTP `400`, `ok: false`; съобщението указва допустимия диапазон от 1 до 1000. Конфигурацията не се променя.
+
+**5. Невалидна числова стойност NaN**
+
+```http
+POST /auto/configure?startingCash=NaN
+
+{}
+```
+
+Очакван резултат: HTTP `400`, `ok: false`; стойността се отхвърля и конфигурацията не се променя.
+
+**6. Валидна покупка точно до бюджета, с одобрение**
+
+```http
+POST /ap2/checkout/run
+
+{"maximumSpendingAmount":100,"currency":"USD","allowedCategories":["books"],"items":[{"name":"Python книга","category":"books","quantity":2,"unitPrice":50}],"humanApprovalRequired":true,"approveCart":true,"humanPresent":true}
+```
+
+Очакван резултат: HTTP `200`, `checkout.valid: true`, `checkout.cartTotal: 100` и `checkout.cartApproved: true`.
+
+**7. Покупка над бюджета**
+
+```http
+POST /ap2/checkout/run
+
+{"maximumSpendingAmount":100,"currency":"USD","allowedCategories":["books"],"items":[{"name":"Python книга","category":"books","quantity":2,"unitPrice":60}],"humanApprovalRequired":false,"approveCart":false,"humanPresent":false}
+```
+
+Очакван резултат: HTTP `200`, но `checkout.valid: false`; общата сума 120 надвишава бюджета 100. `checkout.messages` съдържа причината. HTTP `200` означава, че проверката е изпълнена, а не че покупката е одобрена.
+
+**8. Покупка от неразрешена категория**
+
+```http
+POST /ap2/checkout/run
+
+{"maximumSpendingAmount":100,"currency":"USD","allowedCategories":["books"],"items":[{"name":"Софтуерен лиценз","category":"software","quantity":1,"unitPrice":20}],"humanApprovalRequired":false,"approveCart":false,"humanPresent":false}
+```
+
+Очакван резултат: HTTP `200`, `checkout.valid: false`; категорията `software` не е разрешена.
+
+**9. Дробно количество**
+
+```http
+POST /ap2/checkout/run
+
+{"maximumSpendingAmount":100,"items":[{"name":"Python книга","category":"books","quantity":1.9,"unitPrice":10}]}
+```
+
+Очакван резултат: HTTP `400`, `ok: false`; количеството трябва да е положително цяло число и не се закръгля автоматично.
+
+**10. Текст вместо булева стойност**
+
+```http
+POST /ap2/checkout/run
+
+{"maximumSpendingAmount":100,"items":[{"name":"Python книга","category":"books","quantity":1,"unitPrice":10}],"approveCart":"false"}
+```
+
+Очакван резултат: HTTP `400`, `ok: false`; текстът `"false"` се отхвърля. Правилният JSON тип е `false` без кавички.
+
+---
+
 - **No real trades are ever placed.** This is simulation only.
 - **Not financial advice.**
 - The live BTC ticker is fetched every poll. In console mode, the full candle/indicator snapshot and OpenAI signal refresh at `SIGNAL_REFRESH_SECONDS` (default: 5 minutes); between refreshes, the cached snapshot is reused with the new live price. The API auto runner instead defaults `AUTO_SIM_SIGNAL_REFRESH_SECONDS` to its poll interval (5 seconds unless configured).

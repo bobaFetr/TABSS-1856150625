@@ -76,6 +76,23 @@ class ApiServerTests(unittest.TestCase):
             with exc:
                 return exc.code, exc.read().decode("utf-8")
 
+    def test_invalid_checkout_inputs_return_400(self) -> None:
+        for payload in [
+            {"maximumSpendingAmount": "NaN"},
+            {"maximumSpendingAmount": None},
+            {"approveCart": "false"},
+            {"items": [{"name": "Book", "category": "books", "quantity": 1.9, "unitPrice": 10}]},
+        ]:
+            with self.subTest(payload=payload):
+                status, result = self.post_json("/ap2/checkout/run", payload)
+                self.assertEqual(status, 400)
+                self.assertFalse(result["ok"])
+
+    def test_nan_auto_configuration_returns_400(self) -> None:
+        status, payload = self.post_json("/auto/configure?startingCash=NaN")
+        self.assertEqual(status, 400)
+        self.assertFalse(payload["ok"])
+
     def test_health(self) -> None:
         status, payload = self.get_json("/health")
 

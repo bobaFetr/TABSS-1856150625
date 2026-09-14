@@ -17,6 +17,7 @@ from typing import Any
 from uuid import uuid4
 
 import ap2_sim
+from validation import finite_number
 from exchange import BinanceClient
 from indicators import atr, ema, macd, rsi
 
@@ -76,7 +77,7 @@ def env_float(name: str, default: float) -> float:
     if value is None:
         return default
     try:
-        return float(value)
+        return finite_number(value, name)
     except ValueError:
         return default
 

@@ -17,6 +17,7 @@ from uuid import uuid4
 
 import ap2_sim
 import btc_agent
+from validation import boolean, finite_number, positive_integer
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -84,8 +85,8 @@ def normalize_checkout_items(raw_items: Any) -> list[dict[str, Any]]:
             {
                 "name": str(raw_item.get("name", "")).strip(),
                 "category": str(raw_item.get("category", "")).strip(),
-                "quantity": int(raw_item.get("quantity", 1)),
-                "unitPrice": float(raw_item.get("unitPrice", 0.0)),
+                "quantity": positive_integer(raw_item.get("quantity", 1), "quantity"),
+                "unitPrice": finite_number(raw_item.get("unitPrice", 0.0), "unitPrice"),
             }
         )
     return items
@@ -104,13 +105,13 @@ def run_checkout_payload(payload: dict[str, Any]) -> dict[str, Any]:
         user_id=str(payload.get("userId", "web_user")).strip() or "web_user",
         merchant_id=str(payload.get("merchantId", "web_merchant")).strip() or "web_merchant",
         agent_id=str(payload.get("agentId", "web_agent")).strip() or "web_agent",
-        maximum_spending_amount=float(payload.get("maximumSpendingAmount", 100.0)),
+        maximum_spending_amount=finite_number(payload.get("maximumSpendingAmount", 100.0), "maximumSpendingAmount"),
         currency=str(payload.get("currency", "USD")).strip().upper() or "USD",
         allowed_categories=normalize_categories(payload.get("allowedCategories", ["books", "software"])),
         items=normalize_checkout_items(payload.get("items", [])),
-        human_approval_required=bool(payload.get("humanApprovalRequired", False)),
-        approve_cart=bool(payload.get("approveCart", False)),
-        human_present=bool(payload.get("humanPresent", False)),
+        human_approval_required=boolean(payload.get("humanApprovalRequired", False), "humanApprovalRequired"),
+        approve_cart=boolean(payload.get("approveCart", False), "approveCart"),
+        human_present=boolean(payload.get("humanPresent", False), "humanPresent"),
         payment_method=str(payload.get("paymentMethod", "simulated_card")).strip() or "simulated_card",
     )
 
@@ -221,7 +222,7 @@ def query_float(query: dict[str, list[str]], name: str, default: float, minimum:
     if raw_value is None:
         return default
     try:
-        value = float(raw_value)
+        value = finite_number(raw_value, name)
     except ValueError as exc:
         raise ValueError(f"{name} must be a number.") from exc
     if value < minimum or value > maximum:

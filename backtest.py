@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import btc_agent
+from validation import finite_number, positive_integer
 
 
 @dataclass
@@ -39,6 +40,10 @@ def run_backtest(
     symbol: str = "BTCUSDT",
     interval: str = "15m",
 ) -> BacktestResult:
+    starting_cash = finite_number(starting_cash, "starting_cash")
+    fee_rate_bps = finite_number(fee_rate_bps, "fee_rate_bps")
+    slippage_bps = finite_number(slippage_bps, "slippage_bps")
+    positive_integer(lookback, "lookback")
     if starting_cash <= 0:
         raise ValueError("starting_cash must be positive")
     if lookback < 60:
@@ -49,6 +54,22 @@ def run_backtest(
         raise ValueError("slippage_bps must be between 0 and 9999")
     if len(klines) < 61:
         raise ValueError("At least 61 candles are required")
+
+    previous_time = None
+    for index, row in enumerate(klines):
+        if not isinstance(row, (list, tuple)) or len(row) < 6:
+            raise ValueError(f"Candle {index} must contain timestamp and OHLCV fields")
+        timestamp, opening, high, low, close, volume = [
+            finite_number(value, f"Candle {index} field {field}")
+            for field, value in enumerate(row[:6])
+        ]
+        if timestamp < 0 or (previous_time is not None and timestamp <= previous_time):
+            raise ValueError(f"Candle {index} timestamps must be non-negative and strictly increasing")
+        previous_time = timestamp
+        if min(opening, high, low, close) <= 0 or volume < 0:
+            raise ValueError(f"Candle {index} prices must be positive and volume non-negative")
+        if not low <= min(opening, close) <= max(opening, close) <= high:
+            raise ValueError(f"Candle {index} has inconsistent OHLC prices")
 
     config = btc_agent.AgentConfig(symbol=symbol, interval=interval, lookback=lookback)
     cash = starting_cash

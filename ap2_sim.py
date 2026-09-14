@@ -10,6 +10,7 @@ from base64 import b64decode, b64encode
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from validation import boolean, finite_number, positive_integer
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
@@ -935,7 +936,9 @@ def create_shopping_intent_mandate(
     human_approval_required: bool,
 ) -> dict[str, Any]:
     get_participant(user_id)
-    if maximum_spending_amount <= 0:
+    maximum_spending_amount = finite_number(maximum_spending_amount, "maximum_spending_amount")
+    boolean(human_approval_required, "human_approval_required")
+    if round(maximum_spending_amount, 2) <= 0:
         raise ValueError("maximum_spending_amount must be positive.")
     payload = {
         "mandateType": "IntentMandate",
@@ -964,25 +967,32 @@ def create_shopping_intent_mandate(
 def calculate_cart_total(items: list[dict[str, Any]]) -> float:
     total = 0.0
     for item in items:
-        total += float(item.get("unitPrice", 0.0)) * int(item.get("quantity", 1))
+        total += finite_number(item.get("unitPrice", 0.0), "unitPrice") * positive_integer(item.get("quantity", 1), "quantity")
+    finite_number(total, "cart total")
     return round(total, 2)
 
 
 def normalize_cart_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if not items:
+    if not isinstance(items, list) or not items:
         raise ValueError("At least one cart item is required.")
     normalized_items = []
     for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Each cart item must be an object.")
         name = str(item.get("name", "")).strip()
         category = str(item.get("category", "")).strip().lower()
-        quantity = int(item.get("quantity", 1))
-        unit_price = float(item.get("unitPrice", 0.0))
+        quantity = positive_integer(item.get("quantity", 1), "quantity")
+        unit_price = finite_number(item.get("unitPrice", 0.0), "unitPrice")
         if not name:
             raise ValueError("Cart item name is required.")
         if not category:
             raise ValueError("Cart item category is required.")
-        if quantity <= 0 or unit_price <= 0:
+        if round(unit_price, 2) <= 0:
             raise ValueError("Cart item quantity and unitPrice must be positive.")
+        try:
+            finite_number(quantity * unit_price, "line total")
+        except OverflowError as exc:
+            raise ValueError("Cart line total is too large.") from exc
         normalized_items.append(
             {
                 "name": name,
@@ -1176,11 +1186,17 @@ def validate_payment_chain(
     if not approval_valid:
         failures.append(approval_reason)
 
-    cart_total = round(float(cart.get("totalAmount", 0.0)), 2)
-    max_spend = round(float(intent.get("maximumSpendingAmount", 0.0)), 2)
+    try:
+        cart_total = round(finite_number(cart.get("totalAmount", 0.0), "cart total"), 2)
+        max_spend = round(finite_number(intent.get("maximumSpendingAmount", 0.0), "spending limit"), 2)
+        payment_amount = round(finite_number(payment.get("amount", 0.0), "payment amount"), 2)
+    except ValueError as exc:
+        return False, [str(exc)]
+    if min(cart_total, max_spend, payment_amount) <= 0:
+        failures.append("Amounts must be positive.")
     if cart_total > max_spend:
         failures.append("Cart total exceeds the user spending limit.")
-    if round(float(payment.get("amount", 0.0)), 2) != cart_total:
+    if payment_amount != cart_total:
         failures.append("Payment amount does not match the Cart Mandate total.")
     if payment.get("currency") != cart.get("currency") or cart.get("currency") != intent.get("currency"):
         failures.append("Currency is inconsistent across the mandate chain.")
@@ -1330,6 +1346,11 @@ def run_checkout_scenario(
     human_present: bool,
     payment_method: str,
 ) -> dict[str, Any]:
+    maximum_spending_amount = finite_number(maximum_spending_amount, "maximum_spending_amount")
+    boolean(human_approval_required, "human_approval_required")
+    boolean(approve_cart, "approve_cart")
+    boolean(human_present, "human_present")
+    items = normalize_cart_items(items)
     user = get_or_register_participant("user", user_id)
     merchant = get_or_register_participant("merchant", merchant_id)
     agent = get_or_register_participant("agent", agent_id)

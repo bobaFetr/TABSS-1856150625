@@ -1,0 +1,187 @@
+[
+  {
+    "name": "GET /health",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "GET /",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "GET /dashboard",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "GET /state",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "GET /auto/status",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "GET /ap2",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "unknown route",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "mutating GET rejected",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "invalid token rejected",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "malformed JSON rejected",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "non-object JSON rejected",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "real HTTP market adapter and fallback signal",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "signal persists state",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "configure stopped runner",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "start runner",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "runner produces ticks without errors",
+    "passed": true,
+    "detail": "None"
+  },
+  {
+    "name": "runner executes trades with real mandate validation",
+    "passed": true,
+    "detail": "{'cashBalance': 103.09, 'btcBalance': 0.0, 'equity': 103.09, 'entryPrice': None, 'entryCashValue': 0.0, 'realizedPnl': 3.09, 'unrealizedPnl': 0.0, 'tradeCount': 2, 'totalFeesUsd': 0.2032, 'totalSlippageCostUsd': 0.04, 'lastSeenPrice': 155.0}"
+  },
+  {
+    "name": "configure running runner restarts",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "stop runner",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "valid signed checkout",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "checkout over budget",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "checkout disallowed category",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "checkout missing approval",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "checkout approved cart",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "checkout demo",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "40 concurrent status requests",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "CLI btc_agent.py --once",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "CLI ap2_sim.py --shopping-demo",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "backtest CLI",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "production dashboard HTML",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "frontend proxy health",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "frontend proxy state",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "frontend proxy auto",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "frontend proxy ap2",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "frontend proxy signal",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "frontend proxy checkout",
+    "passed": true,
+    "detail": ""
+  },
+  {
+    "name": "frontend forwards validation errors",
+    "passed": true,
+    "detail": ""
+  }
+]
